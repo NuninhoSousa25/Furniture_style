@@ -1,0 +1,15 @@
+{
+  "businessName": "Your Studio",
+  "destinationEmail": "studio@example.com",
+  "categories": [
+    { "key": "scandinavian", "label": "Scandinavian", "color": "#E4DCC9", "desc": "Light wood, soft neutrals, and clean lines. Calm, functional, and a little cozy." },
+    { "key": "industrial", "label": "Industrial", "color": "#46423C", "desc": "Raw metal, exposed wood, and visible structure. Built with a workshop edge." },
+    { "key": "midcentury", "label": "Mid-Century Modern", "color": "#5E7A6C", "desc": "Tapered legs, warm walnut, and gentle curves. Retro shapes that still feel current." },
+    { "key": "rustic", "label": "Rustic & Farmhouse", "color": "#9C7B52", "desc": "Reclaimed wood, worn finishes, and handcrafted joints. Furniture with some history in it." },
+    { "key": "minimalist", "label": "Minimalist", "color": "#F2EEE6", "desc": "Pared-back forms and quiet color. Pieces that earn their place in the room." }
+  ],
+  "rooms": [
+    { "id": "living-room", "name": "Living Room", "file": "living-room.json" },
+    { "id": "kitchen", "name": "Kitchen", "file": "kitchen.json" }
+  ]
+}
