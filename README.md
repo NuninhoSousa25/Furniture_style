@@ -1,3 +1,10 @@
+Purpose	Link
+Client → Kitchen	https://nuninhosousa25.github.io/Furniture_style/?room=kitchen
+Client → Living Room	https://nuninhosousa25.github.io/Furniture_style/?room=living-room
+Client → let them pick	https://nuninhosousa25.github.io/Furniture_style/
+Your dev/admin link	https://nuninhosousa25.github.io/Furniture_style/?dev=true
+
+
 # Find Your Style, a furniture style quiz
 
 A lightweight, swipe-based quiz that helps clients who do not yet know what they want discover their furniture style. They swipe through pieces, react to each one, and get a style profile they can send to your team as a starting point for a design conversation.
