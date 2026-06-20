@@ -123,6 +123,23 @@ const DEFAULT_STATE = {
 };
 const STORAGE_KEY = 'furnitureStyleQuizState_v3';
 
+/* ---------------- deep links ----------------
+   ?room=<id|slug>  jumps a client straight into that room and hides the gear.
+   ?dev=true        reveals the gear icon so you can open the admin area.
+   nothing set      shows the normal room picker with no admin access.
+   This hides admin from clients; it is not hard security (the admin area only
+   edits a local browser copy and downloads files, it cannot change hosted content). */
+const URL_PARAMS = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+const ROOM_PARAM = URL_PARAMS.get('room');
+const DEV_MODE = URL_PARAMS.get('dev') === 'true';
+function findQuizByParam(quizzes, param) {
+  if (!param) return null;
+  const p = param.trim().toLowerCase();
+  return quizzes.find((q) => (q.id || '').toLowerCase() === p)
+    || quizzes.find((q) => slug(q.name) === p)
+    || null;
+}
+
 /* Minimum number of pieces a client must react to before they can stop early.
    The quiz never asks for more than the total pieces in the room, and the
    order is randomised every run. */
@@ -634,13 +651,17 @@ function App() {
     } catch (e) {}
     setState(s);
     setActiveQuizId(s.quizzes[0].id);
+    // a ?room= link jumps straight into that room once its pieces are ready
+    const autoStart = (quizzes) => { const q = findQuizByParam(quizzes, ROOM_PARAM); if (q) beginQuiz(q); };
     if (s.manifestUrl) {
       // refresh from hosted source on load, fall back to cached copy on failure
       (async () => {
         setRemote({ loading: true, error: null });
-        try { const data = await loadFromManifest(s.manifestUrl); applyRemote(s, data); setRemote({ loading: false, error: null }); }
-        catch (e) { setRemote({ loading: false, error: `Using cached copy. Live load failed: ${e.message}` }); }
+        try { const data = await loadFromManifest(s.manifestUrl); const next = applyRemote(s, data); setRemote({ loading: false, error: null }); autoStart(next.quizzes); }
+        catch (e) { setRemote({ loading: false, error: `Using cached copy. Live load failed: ${e.message}` }); autoStart(s.quizzes); }
       })();
+    } else {
+      autoStart(s.quizzes);
     }
   }, []);
 
@@ -717,7 +738,9 @@ function App() {
         </div>
         {view === 'admin'
           ? <button onClick={() => setView('picker')} className="p-2 rounded-lg" style={{ background: 'var(--card)' }} aria-label="Back"><Icon name="arrow-left" size={16} /></button>
-          : <button onClick={() => setView('admin')} className="p-2 rounded-lg" style={{ background: 'var(--card)' }} aria-label="Manage"><Icon name="settings" size={16} /></button>}
+          : DEV_MODE
+            ? <button onClick={() => setView('admin')} className="p-2 rounded-lg" style={{ background: 'var(--card)' }} aria-label="Manage"><Icon name="settings" size={16} /></button>
+            : null}
       </div>
 
       {view === 'picker' ? (

@@ -22,6 +22,18 @@ It is a single HTML file. No build step, no server required to try it. For a liv
 
 Open `furniture-style-quiz-v2.html` in any modern browser by double-clicking it. It works offline with a built-in starter set (one Living Room quiz with 24 pieces, twelve style categories). To put it on your website, upload the HTML file to your host and link to it like any other page.
 
+## Sharing links with clients
+
+You can shape what a link does with query parameters on the quiz URL:
+
+- `.../furniture-style-quiz-v2.html?room=kitchen` - drops the client straight into one room and skips the picker. The `room` value matches either a room's `id` (from the manifest) or the slug of its name, so `?room=kitchen` and `?room=living-room` both work.
+- `.../furniture-style-quiz-v2.html?dev=true` - your private link. This is the only link that shows the gear icon and lets you open the admin area.
+- `.../furniture-style-quiz-v2.html` - with no parameters, the client sees the normal room picker. The gear icon is hidden.
+
+For a room deep link that loads from a hosted manifest, the quiz waits for the manifest to load before jumping in, so it works the same on your live site.
+
+Note: hiding the gear keeps the admin area out of a client's way, but it is not hard security. Anyone who guesses `?dev=true` can open it. That is fine here, because the admin area only edits a working copy in that one browser and downloads files; it cannot change the content you host.
+
 ## How it works for a client
 
 1. If you publish more than one room, the client first picks a space (Kitchen, Living Room, and so on).
