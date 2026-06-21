@@ -115,7 +115,8 @@ function starterPieces(prefix, keys) {
 const LIVING_TAGS = ['scandinavian', 'industrial', 'bohemian', 'midcentury', 'rustic', 'minimalist', 'traditional', 'maximalist'];
 const DEFAULT_STATE = {
   version: 3,
-  manifestUrl: '',
+  // baked-in hosted source: every visitor auto-loads these rooms, no admin setup needed
+  manifestUrl: 'https://nuninhosousa25.github.io/Furniture_style/manifest.json',
   destinationEmail: '',
   businessName: 'our team',
   categories: DEFAULT_CATEGORIES,
@@ -179,19 +180,19 @@ async function loadFromManifest(manifestUrl) {
 }
 
 /* ---------------- card ---------------- */
-function CardFace({ card, catMap }) {
+function CardFace({ card, catMap, forceFit, onAspect }) {
   const cat = catMap[card.tags[0]] || { color: '#E4DCC9' };
   const text = cat.text || readableText(cat.color);
   const [imgFailed, setImgFailed] = useState(false);
   // vertical images fill the card; anything wider (landscape/square) is scaled to fit so it isn't cropped
   const [fit, setFit] = useState('cover');
   useEffect(() => { setImgFailed(false); setFit('cover'); }, [card.imageUrl]);
-  const onImgLoad = (e) => { const { naturalWidth: w, naturalHeight: h } = e.target; setFit(w > h ? 'contain' : 'cover'); };
+  const onImgLoad = (e) => { const { naturalWidth: w, naturalHeight: h } = e.target; setFit(w > h ? 'contain' : 'cover'); if (onAspect && w && h) onAspect(w / h); };
   const showImage = card.imageUrl && !imgFailed;
   return (
     <div className="absolute inset-0 rounded-3xl overflow-hidden shadow-xl" style={{ background: cat.color }}>
       {showImage ? (
-        <img src={card.imageUrl} alt={card.name} className="w-full h-full" style={{ objectFit: fit }} onLoad={onImgLoad} onError={() => setImgFailed(true)} />
+        <img src={card.imageUrl} alt={card.name} draggable={false} className="w-full h-full select-none" style={{ objectFit: forceFit || fit, pointerEvents: 'none', WebkitUserDrag: 'none' }} onLoad={onImgLoad} onError={() => setImgFailed(true)} />
       ) : (
         <div className="w-full h-full flex flex-col items-center justify-center gap-3 px-8 text-center">
           <Icon name="image" size={56} strokeWidth={1.25} color={text} />
@@ -215,35 +216,88 @@ function StampOverlay({ action }) {
     </div>
   );
 }
-function QuizView({ pieces, index, onAction, onUndo, canUndo, exiting, catMap, minRequired, note, setNote, onStop }) {
+function QuizView({ pieces, index, onAction, onUndo, canUndo, exiting, catMap, minRequired, note, setNote, onStop, isDesktop, vw, vh }) {
   const card = pieces[index], next = pieces[index + 1];
   const total = pieces.length;
   const progress = Math.round((index / total) * 100);
   // they have already reacted to `index` pieces; they may stop once that meets the minimum
   const canStop = total > minRequired && index >= minRequired;
+
+  // On desktop the card frame follows each photo's shape, so nothing letterboxes or crops.
+  // Mobile keeps the fixed portrait card. Placeholder (no photo) cards default to portrait.
+  const PORTRAIT = 0.8;
+  const [aspect, setAspect] = useState(PORTRAIT);
+  useEffect(() => { if (!card || !card.imageUrl) setAspect(PORTRAIT); }, [card && card.id]);
+
+  // drag-to-swipe, one code path for mouse (PC) and touch (mobile) via Pointer Events.
+  // right = like / love it, left = pass / never; the further you drag, the stronger the action.
+  const frameRef = useRef(null);
+  const dragSt = useRef(null);
+  const [drag, setDrag] = useState({ x: 0, y: 0, active: false });
+  // clear any offset the instant a new card mounts, before paint, so it never flashes in
+  React.useLayoutEffect(() => { setDrag({ x: 0, y: 0, active: false }); dragSt.current = null; }, [card && card.id]);
+  const thresholds = () => { const w = frameRef.current ? frameRef.current.getBoundingClientRect().width : 320; return { normal: Math.max(70, w * 0.22), strong: Math.max(160, w * 0.55) }; };
+  const actionFor = (dx, strong) => dx > 0 ? (dx >= strong ? 'superLike' : 'like') : (dx <= -strong ? 'superDislike' : 'dislike');
+  const onPointerDown = (e) => { if (exiting) return; dragSt.current = { id: e.pointerId, sx: e.clientX, sy: e.clientY }; try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) {} setDrag({ x: 0, y: 0, active: true }); };
+  const onPointerMove = (e) => { const d = dragSt.current; if (!d || d.id !== e.pointerId) return; setDrag({ x: e.clientX - d.sx, y: e.clientY - d.sy, active: true }); };
+  const endDrag = (e) => {
+    const d = dragSt.current; if (!d) return; dragSt.current = null;
+    const dx = e.clientX != null ? e.clientX - d.sx : drag.x;
+    const { normal, strong } = thresholds();
+    const key = Math.abs(dx) >= normal ? actionFor(dx, strong) : null;
+    setDrag({ x: 0, y: 0, active: false });
+    if (key) onAction(ACTIONS.find((a) => a.key === key));
+  };
+  // live stamp while dragging, fading in with distance
+  let preview = null, previewOpacity = 0;
+  if (drag.active && Math.abs(drag.x) > 8) {
+    const { normal, strong } = thresholds();
+    preview = ACTIONS.find((a) => a.key === actionFor(drag.x, strong));
+    previewOpacity = Math.min(1, Math.abs(drag.x) / normal);
+  }
+  // the card frame fits each photo's shape on every screen size, so landscape photos
+  // get a short wide card and portrait photos a tall one, with no letterboxing.
+  const maxW = isDesktop ? 700 : Math.min(384, (vw || 384) - 32);
+  const maxH = isDesktop ? Math.min(620, Math.round((vh || 800) * 0.72)) : Math.min(520, Math.round((vh || 800) * 0.62));
+  let fw, fh;
+  if (maxW / maxH < aspect) { fw = maxW; fh = Math.round(maxW / aspect); }  // width-bound (landscape)
+  else { fh = maxH; fw = Math.round(maxH * aspect); }                       // height-bound (portrait)
+  const frame = { width: fw + 'px', height: fh + 'px', transition: 'width .25s ease, height .25s ease' };
+  const outerStyle = { width: fw + 'px' };
+  const outerClass = '';
+
   return (
-    <div className="w-full max-w-sm flex flex-col items-center mx-auto">
-      <div className="w-full max-w-sm flex items-center justify-between mb-3 px-1">
+    <div className={`${outerClass} flex flex-col items-center mx-auto`} style={outerStyle}>
+      <div className="w-full flex items-center justify-between mb-3 px-1">
         <span className="font-mono text-xs tracking-widest" style={{ opacity: 0.6 }}>PIECE {index + 1} / {total}</span>
         <button onClick={onUndo} disabled={!canUndo || !!exiting} className="font-mono text-xs flex items-center gap-1 disabled:opacity-30" aria-label="Undo last">
           <Icon name="undo" size={13} /> UNDO
         </button>
       </div>
-      <div className="w-full max-w-sm h-1.5 rounded-full mb-5 overflow-hidden" style={{ background: 'rgba(43,37,32,0.12)' }}>
+      <div className="w-full h-1.5 rounded-full mb-5 overflow-hidden" style={{ background: 'rgba(43,37,32,0.12)' }}>
         <div className="h-full rounded-full transition-all duration-300" style={{ width: `${progress}%`, background: 'var(--brass)' }} />
       </div>
-      <div className="relative w-full max-w-sm" style={{ height: '480px' }}>
-        {next && <div className="absolute inset-0 scale-95 translate-y-3 opacity-60"><CardFace card={next} catMap={catMap} /></div>}
-        <div className={`absolute inset-0 ${exiting ? EXIT_CLASS[exiting] : ''}`}>
-          <CardFace card={card} catMap={catMap} />
+      <div ref={frameRef} className="relative" style={frame}>
+        {next && <div className="absolute inset-0 scale-95 translate-y-3 opacity-60"><CardFace card={next} catMap={catMap} forceFit="cover" /></div>}
+        <div
+          className={`absolute inset-0 select-none ${exiting ? EXIT_CLASS[exiting] : ''}`}
+          onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={endDrag} onPointerCancel={endDrag}
+          style={{ transform: `translate(${drag.x}px, ${drag.y}px) rotate(${drag.x * 0.05}deg)`, transition: drag.active ? 'none' : 'transform .2s ease', touchAction: 'none', cursor: drag.active ? 'grabbing' : 'grab' }}
+        >
+          <CardFace card={card} catMap={catMap} onAspect={setAspect} />
           <StampOverlay action={exiting} />
+          {!exiting && preview && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
+              <div className="font-display text-3xl sm:text-4xl font-bold px-6 py-2 border-4 rounded-xl tracking-wide" style={{ color: preview.color, borderColor: preview.color, transform: `rotate(${drag.x > 0 ? -10 : 10}deg)`, opacity: previewOpacity }}>{preview.stamp}</div>
+            </div>
+          )}
         </div>
       </div>
-      <div className="w-full max-w-sm mt-5 flex items-center gap-2">
+      <div className="w-full mt-5 flex items-center gap-2">
         <span style={{ opacity: 0.4 }}><Icon name="message" size={15} /></span>
         <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Add a note (optional), e.g. love the colour" className="field" style={{ fontSize: '13px' }} />
       </div>
-      <div className="grid grid-cols-4 gap-3 w-full max-w-sm mt-4">
+      <div className="grid grid-cols-4 gap-3 w-full mt-4">
         {ACTIONS.map((a) => (
           <button key={a.key} onClick={() => onAction(a)} disabled={!!exiting} aria-label={a.label} className="flex flex-col items-center justify-center gap-1 rounded-2xl py-3 border transition-transform active:scale-95 disabled:opacity-50" style={{ borderColor: a.color, color: a.color, background: 'var(--card)' }}>
             <span className="relative">
@@ -608,6 +662,7 @@ function App() {
   const [exiting, setExiting] = useState(null);
   const [error, setError] = useState(null);
   const [remote, setRemote] = useState({ loading: false, error: null });
+  const [vp, setVp] = useState(() => ({ w: typeof window !== 'undefined' ? window.innerWidth : 1024, h: typeof window !== 'undefined' ? window.innerHeight : 768 }));
   const didInit = useRef(false);
 
   const persist = (next) => {
@@ -663,6 +718,13 @@ function App() {
     } else {
       autoStart(s.quizzes);
     }
+  }, []);
+
+  // track viewport so the desktop card can size itself to each photo
+  useEffect(() => {
+    const onResize = () => setVp({ w: window.innerWidth, h: window.innerHeight });
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
   }, []);
 
   const catMap = state ? Object.fromEntries(state.categories.map((c) => [c.key, c])) : {};
@@ -728,20 +790,28 @@ function App() {
   responses.forEach((r) => r.tags.forEach((t) => { counts[t] = (counts[t] || 0) + 1; }));
   const usedKeys = [...new Set(responses.flatMap((r) => r.tags))];
   const minRequired = runQuiz ? Math.min(MIN_QUESTIONS, runQuiz.pieces.length) : 0;
+  const isDesktop = vp.w >= 768;
 
   return (
-    <div className="min-h-screen w-full flex flex-col items-center px-4 py-6" style={{ '--canvas': '#EAE2D3', '--ink': '#2B2520', '--card': '#FBF8F2', '--sage': '#6E7F5C', '--rust': '#B2603F', '--brass': '#C9A227', background: 'var(--canvas)', color: 'var(--ink)', fontFamily: "'Work Sans', sans-serif" }}>
-      <div className="w-full max-w-md flex items-center justify-between mb-6">
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded" style={{ background: 'var(--brass)' }} />
-          <span className="font-display text-lg">Find Your Style</span>
+    <div className="min-h-screen w-full flex flex-col items-center px-4 py-6 relative" style={{ '--canvas': '#EAE2D3', '--ink': '#2B2520', '--card': '#FBF8F2', '--sage': '#6E7F5C', '--rust': '#B2603F', '--brass': '#C9A227', background: 'var(--canvas)', color: 'var(--ink)', fontFamily: "'Work Sans', sans-serif" }}>
+      {(!isDesktop || view === 'admin') ? (
+        <div className="w-full max-w-md flex items-center justify-between mb-6">
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded" style={{ background: 'var(--brass)' }} />
+            <span className="font-display text-lg">Find Your Style</span>
+          </div>
+          {view === 'admin'
+            ? <button onClick={() => setView('picker')} className="p-2 rounded-lg" style={{ background: 'var(--card)' }} aria-label="Back"><Icon name="arrow-left" size={16} /></button>
+            : DEV_MODE
+              ? <button onClick={() => setView('admin')} className="p-2 rounded-lg" style={{ background: 'var(--card)' }} aria-label="Manage"><Icon name="settings" size={16} /></button>
+              : null}
         </div>
-        {view === 'admin'
-          ? <button onClick={() => setView('picker')} className="p-2 rounded-lg" style={{ background: 'var(--card)' }} aria-label="Back"><Icon name="arrow-left" size={16} /></button>
-          : DEV_MODE
-            ? <button onClick={() => setView('admin')} className="p-2 rounded-lg" style={{ background: 'var(--card)' }} aria-label="Manage"><Icon name="settings" size={16} /></button>
-            : null}
-      </div>
+      ) : (
+        // desktop client view: hide the header for more vertical room; float the gear for dev only
+        DEV_MODE
+          ? <button onClick={() => setView('admin')} className="absolute top-4 right-4 p-2 rounded-lg z-10" style={{ background: 'var(--card)' }} aria-label="Manage"><Icon name="settings" size={16} /></button>
+          : null
+      )}
 
       {view === 'picker' ? (
         remote.loading ? (
@@ -766,7 +836,7 @@ function App() {
           })()
         ) : <PickerView quizzes={state.quizzes} onPick={beginQuiz} />
       ) : view === 'quiz' ? (
-        <QuizView pieces={runQuiz.pieces} index={index} onAction={handleAction} onUndo={handleUndo} canUndo={history.length > 0} exiting={exiting} catMap={catMap} minRequired={minRequired} note={note} setNote={setNote} onStop={handleStop} />
+        <QuizView pieces={runQuiz.pieces} index={index} onAction={handleAction} onUndo={handleUndo} canUndo={history.length > 0} exiting={exiting} catMap={catMap} minRequired={minRequired} note={note} setNote={setNote} onStop={handleStop} isDesktop={isDesktop} vw={vp.w} vh={vp.h} />
       ) : view === 'results' ? (
         <ResultsView scores={scores} counts={counts} usedKeys={usedKeys} responses={responses} catMap={catMap} quizName={runQuiz.name} destinationEmail={state.destinationEmail} businessName={state.businessName || 'our team'} onRestart={() => setView('picker')} />
       ) : (
