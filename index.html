@@ -321,11 +321,13 @@ function QuizView({ pieces, index, onAction, onUndo, canUndo, exiting, catMap, m
 function DetailedResponses({ responses, catMap }) {
   if (!responses.length) return null;
   const noteCount = responses.filter((r) => r.note).length;
+  // strongest reaction first (Love it, Like, Pass, Never), keeping show order within a tie
+  const ordered = [...responses].sort((a, b) => b.delta - a.delta);
   return (
     <div className="w-full">
       <p className="font-mono text-xs tracking-widest mb-3" style={{ opacity: 0.6 }}>EVERY REACTION ({responses.length}{noteCount ? `, ${noteCount} with notes` : ''})</p>
       <div className="flex flex-col gap-2">
-        {responses.map((r, i) => {
+        {ordered.map((r, i) => {
           const a = ACTIONS.find((x) => x.key === r.actionKey) || { color: 'var(--ink)' };
           const sw = catMap[r.tags[0]] || { color: '#E4DCC9' };
           const tagLabels = r.tags.map((t) => catMap[t]?.label || t).join(', ');
@@ -374,8 +376,8 @@ function ResultsView({ scores, counts, usedKeys, responses, catMap, quizName, de
     if (showSecond) lines.push(`Also leans: ${second.label} (${fmt(second.avg)})`);
     lines.push('', 'Affinity by style (average reaction, -2 to +2):');
     ranked.forEach((s) => lines.push(`- ${s.label}: ${fmt(s.avg)} (over ${s.cnt} piece${s.cnt === 1 ? '' : 's'})`));
-    lines.push('', 'Detailed responses, in the order shown:');
-    responses.forEach((r, i) => {
+    lines.push('', 'Detailed responses, strongest reaction first:');
+    [...responses].sort((a, b) => b.delta - a.delta).forEach((r, i) => {
       const tagLabels = r.tags.map((t) => catMap[t]?.label || t).join(', ');
       lines.push(`${i + 1}. ${r.pieceName || 'Untitled piece'} — ${r.actionLabel} (${sign(r.delta)})${tagLabels ? ` [${tagLabels}]` : ''}`);
       if (r.note) lines.push(`   Note: ${r.note}`);
