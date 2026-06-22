@@ -7,6 +7,8 @@ Client → let them pick	https://nuninhosousa25.github.io/Furniture_style/
 
 Your dev/admin link	https://nuninhosousa25.github.io/Furniture_style/?dev=true
 
+https://nuninhosousa25.github.io/Furniture_style/this-or-that.html?room=potato
+
 
 # Find Your Style, a furniture style quiz
 
