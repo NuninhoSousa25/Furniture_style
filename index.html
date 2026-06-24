@@ -413,7 +413,6 @@ function ResultsView({ scores, counts, usedKeys, responses, catMap, quizName, de
           <p className="text-sm" style={{ opacity: 0.75 }}>That's useful too. Send this to {businessName} and we'll start from scratch with you, your notes still help.</p>
           <button onClick={onRestart} className="ghost-button mt-1"><Icon name="rotate" size={14} /> Try again</button>
         </div>
-        <DetailedResponses responses={responses} catMap={catMap} />
         {shareRow}
       </div>
     );
@@ -429,24 +428,6 @@ function ResultsView({ scores, counts, usedKeys, responses, catMap, quizName, de
         <p className="mt-6 text-sm leading-relaxed">{top.desc}</p>
       </div>
       {showSecond && <p className="text-sm text-center" style={{ opacity: 0.8 }}>You also lean toward <span className="font-semibold">{second.label}</span>.</p>}
-      <div className="w-full">
-        <p className="font-mono text-xs tracking-widest mb-3" style={{ opacity: 0.6 }}>AFFINITY BY STYLE</p>
-        <div className="flex flex-col gap-2">
-          {ranked.map((s) => {
-            const width = s.avg > 0 ? `${Math.max(6, (s.avg / 2) * 100)}%` : '2%';
-            return (
-              <div key={s.key} className="flex items-center gap-2">
-                <span className="font-mono w-32 truncate" style={{ fontSize: '11px' }} title={s.label}>{s.label}</span>
-                <div className="flex-1 h-2.5 rounded-full overflow-hidden" style={{ background: 'rgba(43,37,32,0.10)' }}>
-                  <div className="h-full rounded-full" style={{ width, background: s.color }} />
-                </div>
-                <span className="font-mono w-8 text-right" style={{ opacity: 0.6, fontSize: '11px' }}>{fmt(s.avg)}</span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-      <DetailedResponses responses={responses} catMap={catMap} />
       {shareRow}
       <button onClick={onRestart} className="ghost-button"><Icon name="rotate" size={14} /> Take it again</button>
     </div>
