@@ -61,6 +61,7 @@ function Icon({ name, size = 18, color = 'currentColor', fill = 'none', strokeWi
     case 'cloud': return <svg {...c}><path d="M17.5 19a4.5 4.5 0 0 0 .5-9 6 6 0 0 0-11.6-1.5A4 4 0 0 0 6.5 19Z" /></svg>;
     case 'message': return <svg {...c}><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z" /></svg>;
     case 'flag': return <svg {...c}><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1Z" /><line x1="4" y1="22" x2="4" y2="15" /></svg>;
+    case 'info': return <svg {...c}><circle cx="12" cy="12" r="10" /><line x1="12" y1="11" x2="12" y2="16" /><line x1="12" y1="7.5" x2="12" y2="7.5" /></svg>;
     default: return null;
   }
 }
@@ -113,6 +114,17 @@ function starterPieces(prefix, keys) {
   return pieces;
 }
 const LIVING_TAGS = ['scandinavian', 'industrial', 'bohemian', 'midcentury', 'rustic', 'minimalist', 'traditional', 'maximalist'];
+// materials vocabulary for the master library — a managed list so pieces can be filtered by it
+const DEFAULT_MATERIALS = [
+  { key: 'wood', label: 'Wood' },
+  { key: 'metal', label: 'Metal' },
+  { key: 'leather', label: 'Leather' },
+  { key: 'fabric', label: 'Fabric' },
+  { key: 'velvet', label: 'Velvet' },
+  { key: 'rattan', label: 'Rattan / Cane' },
+  { key: 'glass', label: 'Glass' },
+  { key: 'stone', label: 'Stone / Marble' },
+];
 const DEFAULT_STATE = {
   version: 3,
   // baked-in hosted source: every visitor auto-loads these rooms, no admin setup needed
@@ -120,9 +132,23 @@ const DEFAULT_STATE = {
   destinationEmail: '',
   businessName: 'our team',
   categories: DEFAULT_CATEGORIES,
+  materials: DEFAULT_MATERIALS,
+  // the master library: the big pool of pieces you filter and assemble client rooms from
+  library: [],
   quizzes: [{ id: 'q-living', name: 'Living Room', file: 'living-room.json', pieces: starterPieces('lr', LIVING_TAGS) }],
 };
 const STORAGE_KEY = 'furnitureStyleQuizState_v3';
+// stored / remote state predates the library, so backfill the new fields and per-piece arrays
+function withDefaults(s) {
+  if (!s) return s;
+  const fixPiece = (p) => ({ ...p, tags: p.tags || [], materials: p.materials || [], colors: p.colors || [], accentColors: p.accentColors || [] });
+  return {
+    ...s,
+    materials: Array.isArray(s.materials) ? s.materials : DEFAULT_MATERIALS,
+    library: Array.isArray(s.library) ? s.library.map(fixPiece) : [],
+    quizzes: (s.quizzes || []).map((q) => ({ ...q, pieces: (q.pieces || []).map(fixPiece) })),
+  };
+}
 
 /* ---------------- deep links ----------------
    ?room=<id|slug>  jumps a client straight into that room and hides the gear.
@@ -212,11 +238,11 @@ function StampOverlay({ action }) {
   const a = ACTIONS.find((x) => x.key === action);
   return (
     <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
-      <div className="stamp font-display text-3xl sm:text-4xl font-bold px-6 py-2 border-4 rounded-xl tracking-wide" style={{ color: a.color, borderColor: a.color, transform: 'rotate(-10deg)' }}>{a.stamp}</div>
+      <div className="stamp font-display text-3xl sm:text-4xl font-bold px-6 py-2 border-4 rounded-xl tracking-wide" style={{ color: a.color, borderColor: a.color, background: 'rgba(251,248,242,0.82)', boxShadow: '0 2px 12px rgba(0,0,0,0.18)', transform: 'rotate(-10deg)' }}>{a.stamp}</div>
     </div>
   );
 }
-function QuizView({ pieces, index, onAction, onUndo, canUndo, exiting, catMap, minRequired, note, setNote, onStop, isDesktop, vw, vh }) {
+function QuizView({ pieces, index, onAction, onUndo, canUndo, undoCount, exiting, catMap, minRequired, note, setNote, onStop, isDesktop, vw, vh }) {
   const card = pieces[index], next = pieces[index + 1];
   const total = pieces.length;
   const progress = Math.round((index / total) * 100);
@@ -236,7 +262,9 @@ function QuizView({ pieces, index, onAction, onUndo, canUndo, exiting, catMap, m
   const [drag, setDrag] = useState({ x: 0, y: 0, active: false });
   // clear any offset the instant a new card mounts, before paint, so it never flashes in
   React.useLayoutEffect(() => { setDrag({ x: 0, y: 0, active: false }); dragSt.current = null; }, [card && card.id]);
-  const thresholds = () => { const w = frameRef.current ? frameRef.current.getBoundingClientRect().width : 320; return { normal: Math.max(70, w * 0.22), strong: Math.max(160, w * 0.55) }; };
+  // thresholds are capped so they don't balloon on wide desktop cards — otherwise the
+  // "Love it / Never" zone sits ~250px out and a normal mouse drag can never reach it.
+  const thresholds = () => { const w = frameRef.current ? frameRef.current.getBoundingClientRect().width : 320; return { normal: Math.min(110, Math.max(60, w * 0.18)), strong: Math.min(190, Math.max(150, w * 0.42)) }; };
   const actionFor = (dx, strong) => dx > 0 ? (dx >= strong ? 'superLike' : 'like') : (dx <= -strong ? 'superDislike' : 'dislike');
   const onPointerDown = (e) => { if (exiting) return; dragSt.current = { id: e.pointerId, sx: e.clientX, sy: e.clientY }; try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) {} setDrag({ x: 0, y: 0, active: true }); };
   const onPointerMove = (e) => { const d = dragSt.current; if (!d || d.id !== e.pointerId) return; setDrag({ x: e.clientX - d.sx, y: e.clientY - d.sy, active: true }); };
@@ -253,25 +281,28 @@ function QuizView({ pieces, index, onAction, onUndo, canUndo, exiting, catMap, m
   if (drag.active && Math.abs(drag.x) > 8) {
     const { normal, strong } = thresholds();
     preview = ACTIONS.find((a) => a.key === actionFor(drag.x, strong));
-    previewOpacity = Math.min(1, Math.abs(drag.x) / normal);
+    previewOpacity = Math.min(1, Math.abs(drag.x) / (normal * 0.7));
   }
   // the card frame fits each photo's shape on every screen size, so landscape photos
   // get a short wide card and portrait photos a tall one, with no letterboxing.
   const maxW = isDesktop ? 700 : Math.min(384, (vw || 384) - 32);
-  const maxH = isDesktop ? Math.min(620, Math.round((vh || 800) * 0.72)) : Math.min(520, Math.round((vh || 800) * 0.62));
+  // on desktop, reserve room for the progress bar, note field, and reaction buttons so the
+  // whole stack fits the viewport height — fixes buttons running off-screen on 1080p / scaled
+  // displays, while the wrapper below vertically centers it so 4K no longer leaves a top gap.
+  const maxH = isDesktop ? Math.max(300, Math.min(620, Math.round(vh || 800) - 280)) : Math.min(520, Math.round((vh || 800) * 0.62));
   let fw, fh;
   if (maxW / maxH < aspect) { fw = maxW; fh = Math.round(maxW / aspect); }  // width-bound (landscape)
   else { fh = maxH; fw = Math.round(maxH * aspect); }                       // height-bound (portrait)
   const frame = { width: fw + 'px', height: fh + 'px', transition: 'width .25s ease, height .25s ease' };
   const outerStyle = { width: fw + 'px' };
-  const outerClass = '';
 
   return (
-    <div className={`${outerClass} flex flex-col items-center mx-auto`} style={outerStyle}>
+    <div className={`w-full flex flex-col items-center ${isDesktop ? 'flex-1 justify-center' : ''}`}>
+     <div className="flex flex-col items-center mx-auto" style={outerStyle}>
       <div className="w-full flex items-center justify-between mb-3 px-1">
         <span className="font-mono text-xs tracking-widest" style={{ opacity: 0.6 }}>PIECE {index + 1} / {total}</span>
-        <button onClick={onUndo} disabled={!canUndo || !!exiting} className="font-mono text-xs flex items-center gap-1 disabled:opacity-30" aria-label="Undo last">
-          <Icon name="undo" size={13} /> UNDO
+        <button onClick={onUndo} disabled={!canUndo || !!exiting} className="font-mono text-xs flex items-center gap-1 disabled:opacity-30" aria-label={canUndo ? `Go back — ${undoCount} piece${undoCount === 1 ? '' : 's'} to undo` : 'Undo last'} title="Step back through previous pieces to change your answer">
+          <Icon name="undo" size={13} /> UNDO{undoCount > 0 ? ` (${undoCount})` : ''}
         </button>
       </div>
       <div className="w-full h-1.5 rounded-full mb-5 overflow-hidden" style={{ background: 'rgba(43,37,32,0.12)' }}>
@@ -288,7 +319,7 @@ function QuizView({ pieces, index, onAction, onUndo, canUndo, exiting, catMap, m
           <StampOverlay action={exiting} />
           {!exiting && preview && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
-              <div className="font-display text-3xl sm:text-4xl font-bold px-6 py-2 border-4 rounded-xl tracking-wide" style={{ color: preview.color, borderColor: preview.color, transform: `rotate(${drag.x > 0 ? -10 : 10}deg)`, opacity: previewOpacity }}>{preview.stamp}</div>
+              <div className="font-display text-3xl sm:text-4xl font-bold px-6 py-2 border-4 rounded-xl tracking-wide" style={{ color: preview.color, borderColor: preview.color, background: 'rgba(251,248,242,0.82)', boxShadow: '0 2px 12px rgba(0,0,0,0.18)', transform: `rotate(${drag.x > 0 ? -10 : 10}deg)`, opacity: previewOpacity }}>{preview.stamp}</div>
             </div>
           )}
         </div>
@@ -313,6 +344,7 @@ function QuizView({ pieces, index, onAction, onUndo, canUndo, exiting, catMap, m
           <Icon name="flag" size={14} color="var(--card)" /> Stop &amp; see my results ({index} answered)
         </button>
       )}
+     </div>
     </div>
   );
 }
@@ -367,6 +399,14 @@ function ResultsView({ scores, counts, usedKeys, responses, catMap, quizName, de
   const second = ranked[1];
   const showSecond = second && second.avg > 0 && top.avg - second.avg <= 0.5;
 
+  // color palette: drawn from the pieces the client reacted positively to (Like / Love it),
+  // strongest reaction first, deduped. Only appears if those pieces carried colors.
+  const liked = [...responses].filter((r) => r.delta > 0).sort((a, b) => b.delta - a.delta);
+  const dedupe = (arr) => [...new Set(arr.map((c) => (c || '').toUpperCase()))].filter(Boolean);
+  const mainPalette = dedupe(liked.flatMap((r) => r.colors || [])).slice(0, 8);
+  const accentPalette = dedupe(liked.flatMap((r) => r.accentColors || [])).slice(0, 6);
+  const hasPalette = mainPalette.length > 0 || accentPalette.length > 0;
+
   const fmt = (v) => (v >= 0 ? '+' : '') + v.toFixed(1);
   const buildSummary = () => {
     const lines = [`Style quiz result, ${quizName}`];
@@ -374,6 +414,8 @@ function ResultsView({ scores, counts, usedKeys, responses, catMap, quizName, de
     lines.push(`Pieces reviewed: ${responses.length}`);
     if (top) lines.push(`Top style: ${top.label} (${fmt(top.avg)})`);
     if (showSecond) lines.push(`Also leans: ${second.label} (${fmt(second.avg)})`);
+    if (mainPalette.length) lines.push(`Color palette (from liked pieces): ${mainPalette.join(', ')}`);
+    if (accentPalette.length) lines.push(`Accent colors: ${accentPalette.join(', ')}`);
     lines.push('', 'Affinity by style (average reaction, -2 to +2):');
     ranked.forEach((s) => lines.push(`- ${s.label}: ${fmt(s.avg)} (over ${s.cnt} piece${s.cnt === 1 ? '' : 's'})`));
     lines.push('', 'Detailed responses, strongest reaction first:');
@@ -428,6 +470,28 @@ function ResultsView({ scores, counts, usedKeys, responses, catMap, quizName, de
         <p className="mt-6 text-sm leading-relaxed">{top.desc}</p>
       </div>
       {showSecond && <p className="text-sm text-center" style={{ opacity: 0.8 }}>You also lean toward <span className="font-semibold">{second.label}</span>.</p>}
+      {hasPalette && (
+        <div className="w-full rounded-2xl p-4 flex flex-col gap-3" style={{ background: 'var(--card)' }}>
+          <p className="font-mono text-xs tracking-widest" style={{ opacity: 0.6 }}>YOUR COLOR PALETTE</p>
+          {mainPalette.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {mainPalette.map((c, i) => (
+                <div key={'m' + i} className="flex flex-col items-center gap-1">
+                  <span className="w-9 h-9 rounded-lg" style={{ background: c, border: '1px solid rgba(43,37,32,0.15)' }} />
+                  <span className="font-mono" style={{ fontSize: '9px', opacity: 0.5 }}>{c}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {accentPalette.length > 0 && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs" style={{ opacity: 0.55 }}>Accents</span>
+              {accentPalette.map((c, i) => <span key={'a' + i} title={c} className="w-7 h-7 rounded-full" style={{ background: c, boxShadow: '0 0 0 1px #fff, 0 0 0 2px rgba(43,37,32,0.3)' }} />)}
+            </div>
+          )}
+          <p className="text-xs" style={{ opacity: 0.55 }}>Drawn from the colors of the pieces you liked.</p>
+        </div>
+      )}
       {shareRow}
       <button onClick={onRestart} className="ghost-button"><Icon name="rotate" size={14} /> Take it again</button>
     </div>
@@ -452,6 +516,35 @@ function PickerView({ quizzes, onPick }) {
   );
 }
 
+/* ---------------- "how it works" info button (start menu, bottom-right) ---------------- */
+function InfoButton() {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button onClick={() => setOpen(true)} aria-label="How it works"
+        className="fixed bottom-4 right-4 z-30 w-11 h-11 rounded-full flex items-center justify-center"
+        style={{ background: 'var(--card)', color: 'var(--ink)', boxShadow: '0 4px 14px rgba(0,0,0,0.18)' }}>
+        <Icon name="info" size={20} />
+      </button>
+      {open && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center p-4" style={{ background: 'rgba(43,37,32,0.45)' }} onClick={() => setOpen(false)}>
+          <div className="w-full max-w-sm rounded-2xl p-6 relative" style={{ background: 'var(--card)', color: 'var(--ink)' }} onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => setOpen(false)} aria-label="Close" className="absolute top-3 right-3 p-1" style={{ opacity: 0.55 }}><Icon name="x" size={18} /></button>
+            <p className="font-display text-2xl mb-4">How it works</p>
+            <ol className="flex flex-col gap-3 text-sm" style={{ opacity: 0.9 }}>
+              <li><b>Swipe or tap.</b> Drag a card right if you like a piece, left to pass — or just tap the buttons.</li>
+              <li><b>Go further for a strong reaction.</b> Drag all the way right for <i>Love it</i> or left for <i>Never</i> — these count double.</li>
+              <li><b>Add a note.</b> Say what you love or dislike about any piece. Totally optional.</li>
+              <li><b>Change your mind.</b> Use <i>Undo</i> to step back through pieces and re-answer.</li>
+              <li><b>Get your style.</b> Answer a handful of pieces, stop when you like, and we'll show your style profile to share with the studio.</li>
+            </ol>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 /* ---------------- small inputs ---------------- */
 function BlurInput({ value, onCommit, placeholder, type }) {
   const [v, setV] = useState(value || '');
@@ -468,10 +561,209 @@ function Section({ label, children }) {
 }
 
 /* ---------------- admin ---------------- */
+/* a row of color swatches with a picker to add more — used for main and accent colors */
+function SwatchEditor({ colors, draft, setDraft, onAdd, onRemove }) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {colors.map((c) => (
+        <span key={c} className="flex items-center gap-1 rounded-full border pl-1 pr-1.5 py-1" style={{ borderColor: 'rgba(43,37,32,0.2)' }}>
+          <span className="w-5 h-5 rounded-full" style={{ background: c, border: '1px solid rgba(43,37,32,0.15)' }} />
+          <button onClick={() => onRemove(c)} aria-label="Remove color" style={{ lineHeight: 0 }}><Icon name="x" size={12} /></button>
+        </span>
+      ))}
+      <input type="color" value={draft} onChange={(e) => setDraft(e.target.value)} className="w-9 h-9 rounded-lg p-0 flex-shrink-0" style={{ border: '1px solid rgba(43,37,32,0.2)' }} aria-label="Pick color" />
+      <button onClick={onAdd} className="ghost-button"><Icon name="plus" size={13} /> Add</button>
+    </div>
+  );
+}
+
+/* ---------------- master library + quiz builder ----------------
+   The "big database": add pieces with style tags, materials, main + accent colors,
+   then filter the pool and drop a selected group into the active room. */
+function LibraryManager({ categories, materials, library, activeQuiz, catMap, onAddLibraryPiece, onUpdateLibraryPiece, onDeleteLibraryPiece, onAddPiecesToRoom, onAddMaterial, onAddCategory }) {
+  const matMap = Object.fromEntries(materials.map((m) => [m.key, m]));
+  const toggle = (arr, k) => (arr.includes(k) ? arr.filter((x) => x !== k) : [...arr, k]);
+
+  // add-to-library form
+  const [name, setName] = useState(''); const [url, setUrl] = useState('');
+  const [styles, setStyles] = useState([]); const [mats, setMats] = useState([]);
+  const [colors, setColors] = useState([]); const [accentColors, setAccentColors] = useState([]);
+  const [colorDraft, setColorDraft] = useState('#C9A227'); const [accentDraft, setAccentDraft] = useState('#46423C');
+  const [newStyle, setNewStyle] = useState(''); const [newMat, setNewMat] = useState('');
+  const valid = url.trim() && styles.length > 0;   // image + at least one style required; materials/colors optional
+  // inline "add more tags": create a new vocabulary entry and select it right away
+  const addStyleInline = () => { const label = newStyle.trim(); if (!label) return; const key = `${slug(label)}-${Date.now().toString(36).slice(-4)}`; onAddCategory({ key, label, color: NEW_TAG_PALETTE[Math.floor(Math.random() * NEW_TAG_PALETTE.length)], desc: `${label} style.`, custom: true }); setStyles((s) => [...s, key]); setNewStyle(''); };
+  const addMatInline = () => { const label = newMat.trim(); if (!label) return; const key = `${slug(label)}-${Date.now().toString(36).slice(-4)}`; onAddMaterial({ key, label }); setMats((m) => [...m, key]); setNewMat(''); };
+  const submit = () => {
+    if (!valid) return;
+    onAddLibraryPiece({ id: `lib${Date.now()}`, name: name.trim(), imageUrl: url.trim(), tags: styles, materials: mats, colors, accentColors });
+    setName(''); setUrl(''); setStyles([]); setMats([]); setColors([]); setAccentColors([]);
+  };
+
+  // filter + select for building a room
+  const [fStyles, setFStyles] = useState([]); const [fMats, setFMats] = useState([]); const [fText, setFText] = useState('');
+  const [sel, setSel] = useState([]);
+  // editing a library piece in place
+  const [editingId, setEditingId] = useState(null);
+  const [editColorDraft, setEditColorDraft] = useState('#C9A227'); const [editAccentDraft, setEditAccentDraft] = useState('#46423C');
+  const filtered = library.filter((p) => {
+    if (fText && !((p.name || '').toLowerCase().includes(fText.toLowerCase()))) return false;
+    if (fStyles.length && !fStyles.some((s) => (p.tags || []).includes(s))) return false;
+    if (fMats.length && !fMats.some((m) => (p.materials || []).includes(m))) return false;
+    return true;
+  });
+  const toggleSel = (id) => setSel((s) => toggle(s, id));
+  const addToRoom = () => {
+    const chosen = library.filter((p) => sel.includes(p.id));
+    const stamp = Date.now();
+    const pieces = chosen.map((p, i) => ({ id: `${activeQuiz.id}-${p.id}-${stamp}${i}`, name: p.name, imageUrl: p.imageUrl, tags: [...(p.tags || [])], materials: [...(p.materials || [])], colors: [...(p.colors || [])], accentColors: [...(p.accentColors || [])], libId: p.id }));
+    onAddPiecesToRoom(activeQuiz.id, pieces);
+    setSel([]);
+  };
+
+  const chip = (active, color, onClick, label, key) => (
+    <button key={key} onClick={onClick} className="text-xs rounded-full px-3 py-1.5 border" style={{ borderColor: active ? (color || 'var(--brass)') : 'rgba(43,37,32,0.2)', background: active ? (color || 'var(--brass)') : '#fff', color: active ? (color ? readableText(color) : 'var(--card)') : 'var(--ink)' }}>{label}</button>
+  );
+
+  return (
+    <>
+      <Section label="ADD TO MASTER LIBRARY">
+        <p className="text-xs" style={{ opacity: 0.6 }}>The shared pool of pieces. Every piece needs an image and at least one style; materials and colors are optional. Build rooms from it below.</p>
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name (optional), e.g. Walnut Bench" className="field" />
+        <div>
+          <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="Image URL (required)" className="field" style={{ borderColor: url.trim() ? undefined : 'var(--rust)' }} />
+          {!url.trim() && <p className="text-xs mt-1" style={{ color: 'var(--rust)', opacity: 0.8 }}>An image URL is required so the piece shows a photo in the quiz.</p>}
+        </div>
+        <div>
+          <p className="text-xs mb-2" style={{ opacity: 0.6 }}>Styles (pick at least one)</p>
+          <div className="flex flex-wrap gap-2">{categories.map((c) => chip(styles.includes(c.key), c.color, () => setStyles((s) => toggle(s, c.key)), c.label, c.key))}</div>
+          <div className="flex gap-2 items-center mt-2">
+            <input value={newStyle} onChange={(e) => setNewStyle(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') addStyleInline(); }} placeholder="New style tag" className="field" style={{ fontSize: '12px' }} />
+            <button onClick={addStyleInline} disabled={!newStyle.trim()} className="ghost-button disabled:opacity-40"><Icon name="plus" size={13} /> Add</button>
+          </div>
+        </div>
+        <div>
+          <p className="text-xs mb-2" style={{ opacity: 0.6 }}>Materials (optional)</p>
+          <div className="flex flex-wrap gap-2">{materials.map((m) => chip(mats.includes(m.key), null, () => setMats((s) => toggle(s, m.key)), m.label, m.key))}</div>
+          <div className="flex gap-2 items-center mt-2">
+            <input value={newMat} onChange={(e) => setNewMat(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') addMatInline(); }} placeholder="New material" className="field" style={{ fontSize: '12px' }} />
+            <button onClick={addMatInline} disabled={!newMat.trim()} className="ghost-button disabled:opacity-40"><Icon name="plus" size={13} /> Add</button>
+          </div>
+        </div>
+        <div>
+          <p className="text-xs mb-2" style={{ opacity: 0.6 }}>Main colors (optional)</p>
+          <SwatchEditor colors={colors} draft={colorDraft} setDraft={setColorDraft} onAdd={() => setColors((c) => (c.includes(colorDraft) ? c : [...c, colorDraft]))} onRemove={(c) => setColors((cs) => cs.filter((x) => x !== c))} />
+        </div>
+        <div>
+          <p className="text-xs mb-2" style={{ opacity: 0.6 }}>Accent colors (optional)</p>
+          <SwatchEditor colors={accentColors} draft={accentDraft} setDraft={setAccentDraft} onAdd={() => setAccentColors((c) => (c.includes(accentDraft) ? c : [...c, accentDraft]))} onRemove={(c) => setAccentColors((cs) => cs.filter((x) => x !== c))} />
+        </div>
+        <button onClick={submit} disabled={!valid} className="tag-button self-start disabled:opacity-40"><Icon name="plus" size={15} color="var(--card)" /> Add to library</button>
+      </Section>
+
+      <Section label={`BUILD "${activeQuiz.name.toUpperCase()}" FROM LIBRARY`}>
+        <p className="text-xs" style={{ opacity: 0.6 }}>The library has {library.length} piece{library.length === 1 ? '' : 's'}. Filter, select a group, and add them to this room.</p>
+        {library.length === 0 ? (
+          <p className="text-xs" style={{ opacity: 0.5 }}>Add some pieces to the library first.</p>
+        ) : (
+          <>
+            <input value={fText} onChange={(e) => setFText(e.target.value)} placeholder="Search by name" className="field" />
+            <div className="flex flex-wrap gap-2">{categories.map((c) => chip(fStyles.includes(c.key), c.color, () => setFStyles((s) => toggle(s, c.key)), c.label, c.key))}</div>
+            <div className="flex flex-wrap gap-2">{materials.map((m) => chip(fMats.includes(m.key), null, () => setFMats((s) => toggle(s, m.key)), m.label, m.key))}</div>
+            <div className="flex items-center justify-between">
+              <span className="font-mono text-xs" style={{ opacity: 0.6 }}>{filtered.length} match{filtered.length === 1 ? '' : 'es'} · {sel.length} selected</span>
+              <div className="flex gap-2">
+                <button onClick={() => setSel(filtered.map((p) => p.id))} className="ghost-button">Select all</button>
+                <button onClick={() => setSel([])} className="ghost-button">Clear</button>
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5 max-h-72 overflow-auto">
+              {filtered.map((p) => {
+                const sw = catMap[(p.tags || [])[0]] || { color: '#E4DCC9' };
+                const checked = sel.includes(p.id);
+                return (
+                  <button key={p.id} onClick={() => toggleSel(p.id)} className="flex items-center gap-3 rounded-xl p-2 border text-left" style={{ borderColor: checked ? 'var(--brass)' : 'rgba(43,37,32,0.15)', background: checked ? 'rgba(201,162,39,0.12)' : '#fff' }}>
+                    <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden" style={{ background: sw.color }}>
+                      {p.imageUrl ? <img src={p.imageUrl} alt="" className="w-full h-full object-cover" /> : <Icon name="image" size={16} color={readableText(sw.color)} />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm truncate" style={{ fontStyle: p.name ? undefined : 'italic', opacity: p.name ? 1 : 0.5 }}>{p.name || 'Untitled piece'}</p>
+                      <p className="text-xs truncate" style={{ opacity: 0.55 }}>{(p.tags || []).map((t) => catMap[t]?.label).filter(Boolean).join(', ') || 'no style'}{(p.materials || []).length ? ' · ' + (p.materials).map((m) => matMap[m]?.label).filter(Boolean).join(', ') : ''}</p>
+                    </div>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      {(p.colors || []).slice(0, 3).map((c, i) => <span key={'m' + i} className="w-3.5 h-3.5 rounded-full" style={{ background: c, border: '1px solid rgba(43,37,32,0.15)' }} />)}
+                      {(p.accentColors || []).slice(0, 2).map((c, i) => <span key={'a' + i} title="accent" className="w-3.5 h-3.5 rounded-full" style={{ background: c, boxShadow: '0 0 0 1px #fff, 0 0 0 2px rgba(43,37,32,0.4)' }} />)}
+                      <span className="ml-1 w-4 h-4 rounded flex items-center justify-center" style={{ border: checked ? 'none' : '1px solid rgba(43,37,32,0.3)', background: checked ? 'var(--brass)' : 'transparent', color: 'var(--card)' }}>{checked ? '✓' : ''}</span>
+                    </div>
+                  </button>
+                );
+              })}
+              {filtered.length === 0 && <p className="text-xs py-2" style={{ opacity: 0.5 }}>Nothing matches those filters.</p>}
+            </div>
+            <button onClick={addToRoom} disabled={sel.length === 0} className="tag-button self-start disabled:opacity-40"><Icon name="plus" size={15} color="var(--card)" /> Add {sel.length || ''} selected to "{activeQuiz.name}"</button>
+          </>
+        )}
+      </Section>
+
+      <div>
+        <p className="font-mono text-xs tracking-widest mb-3" style={{ opacity: 0.6 }}>MASTER LIBRARY ({library.length})</p>
+        <div className="flex flex-col gap-2">
+          {library.map((p) => {
+            const sw = catMap[(p.tags || [])[0]] || { color: '#E4DCC9' };
+            return (
+              <div key={p.id} className="rounded-2xl p-3" style={{ background: 'var(--card)' }}>
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden" style={{ background: sw.color }}>
+                    {p.imageUrl ? <img src={p.imageUrl} alt="" className="w-full h-full object-cover" /> : <Icon name="image" size={20} color={readableText(sw.color)} />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate" style={{ fontStyle: p.name ? undefined : 'italic', opacity: p.name ? 1 : 0.5 }}>{p.name || 'Untitled piece'}</p>
+                    <p className="text-xs truncate" style={{ opacity: 0.6 }}>{(p.tags || []).map((t) => catMap[t]?.label).filter(Boolean).join(', ') || 'no style'}{(p.materials || []).length ? ' · ' + (p.materials).map((m) => matMap[m]?.label).filter(Boolean).join(', ') : ''}</p>
+                  </div>
+                  {(p.colors || []).slice(0, 3).map((c, i) => <span key={'m' + i} className="w-3.5 h-3.5 rounded-full flex-shrink-0" style={{ background: c, border: '1px solid rgba(43,37,32,0.15)' }} />)}
+                  {(p.accentColors || []).slice(0, 2).map((c, i) => <span key={'a' + i} title="accent" className="w-3.5 h-3.5 rounded-full flex-shrink-0" style={{ background: c, boxShadow: '0 0 0 1px #fff, 0 0 0 2px rgba(43,37,32,0.4)' }} />)}
+                  <button onClick={() => setEditingId(editingId === p.id ? null : p.id)} className="p-2 rounded-lg flex-shrink-0" style={{ background: 'rgba(43,37,32,0.06)' }} aria-label="Edit piece"><Icon name="pencil" size={14} /></button>
+                  <button onClick={() => { if (confirm('Remove this piece from the library? Rooms already built keep their copy.')) onDeleteLibraryPiece(p.id); }} className="p-2 rounded-lg flex-shrink-0" style={{ background: 'rgba(178,96,63,0.12)', color: 'var(--rust)' }} aria-label="Delete from library"><Icon name="trash" size={14} color="var(--rust)" /></button>
+                </div>
+                {editingId === p.id && (
+                  <div className="flex flex-col gap-3 mt-3 pt-3" style={{ borderTop: '1px dashed rgba(43,37,32,0.15)' }}>
+                    <BlurInput value={p.name} onCommit={(v) => onUpdateLibraryPiece(p.id, { name: v.trim() })} placeholder="Name (optional)" />
+                    <BlurInput value={p.imageUrl} onCommit={(v) => onUpdateLibraryPiece(p.id, { imageUrl: v.trim() })} placeholder="Image URL (required)" />
+                    <div>
+                      <p className="text-xs mb-2" style={{ opacity: 0.6 }}>Styles</p>
+                      <div className="flex flex-wrap gap-2">{categories.map((c) => chip((p.tags || []).includes(c.key), c.color, () => onUpdateLibraryPiece(p.id, { tags: toggle(p.tags || [], c.key) }), c.label, c.key))}</div>
+                    </div>
+                    <div>
+                      <p className="text-xs mb-2" style={{ opacity: 0.6 }}>Materials</p>
+                      <div className="flex flex-wrap gap-2">{materials.map((m) => chip((p.materials || []).includes(m.key), null, () => onUpdateLibraryPiece(p.id, { materials: toggle(p.materials || [], m.key) }), m.label, m.key))}</div>
+                    </div>
+                    <div>
+                      <p className="text-xs mb-2" style={{ opacity: 0.6 }}>Main colors</p>
+                      <SwatchEditor colors={p.colors || []} draft={editColorDraft} setDraft={setEditColorDraft} onAdd={() => onUpdateLibraryPiece(p.id, { colors: (p.colors || []).includes(editColorDraft) ? (p.colors || []) : [...(p.colors || []), editColorDraft] })} onRemove={(c) => onUpdateLibraryPiece(p.id, { colors: (p.colors || []).filter((x) => x !== c) })} />
+                    </div>
+                    <div>
+                      <p className="text-xs mb-2" style={{ opacity: 0.6 }}>Accent colors</p>
+                      <SwatchEditor colors={p.accentColors || []} draft={editAccentDraft} setDraft={setEditAccentDraft} onAdd={() => onUpdateLibraryPiece(p.id, { accentColors: (p.accentColors || []).includes(editAccentDraft) ? (p.accentColors || []) : [...(p.accentColors || []), editAccentDraft] })} onRemove={(c) => onUpdateLibraryPiece(p.id, { accentColors: (p.accentColors || []).filter((x) => x !== c) })} />
+                    </div>
+                    <button onClick={() => setEditingId(null)} className="tag-button self-start">Done</button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {library.length === 0 && <p className="text-xs" style={{ opacity: 0.5 }}>The library is empty. Add pieces above.</p>}
+        </div>
+      </div>
+    </>
+  );
+}
+
 function AdminView(props) {
   const { state, activeQuizId, setActiveQuizId, remote, onLoadRemote,
     onAddPiece, onTogglePieceTag, onDeletePiece, onUpdatePiece, onAddQuiz, onRenameQuiz, onDeleteQuiz,
-    onAddCategory, onDeleteCategory, onSet, onImport, onReset, error } = props;
+    onAddCategory, onDeleteCategory, onAddMaterial, onDeleteMaterial,
+    onAddLibraryPiece, onUpdateLibraryPiece, onDeleteLibraryPiece, onAddPiecesToRoom,
+    onSet, onImport, onReset, error } = props;
 
   const catMap = Object.fromEntries(state.categories.map((c) => [c.key, c]));
   const activeQuiz = state.quizzes.find((q) => q.id === activeQuizId) || state.quizzes[0];
@@ -479,7 +771,9 @@ function AdminView(props) {
   const [editingId, setEditingId] = useState(null);
   const [newQuizName, setNewQuizName] = useState('');
   const [catName, setCatName] = useState(''); const [catColor, setCatColor] = useState(NEW_TAG_PALETTE[0]); const [catDesc, setCatDesc] = useState('');
+  const [matName, setMatName] = useState('');
   const [manifestDraft, setManifestDraft] = useState(state.manifestUrl || '');
+  const submitMaterial = () => { if (!matName.trim()) return; onAddMaterial({ key: `${slug(matName)}-${Date.now().toString(36).slice(-4)}`, label: matName.trim() }); setMatName(''); };
 
   const toggleNewTag = (k) => setPTags((p) => (p.includes(k) ? p.filter((t) => t !== k) : [...p, k]));
   const submitPiece = () => { if (pTags.length === 0) return; onAddPiece(activeQuiz.id, { id: `p${Date.now()}`, name: pName.trim(), imageUrl: pUrl.trim(), tags: pTags }); setPName(''); setPUrl(''); setPTags([]); };
@@ -572,6 +866,26 @@ function AdminView(props) {
         </div>
       </Section>
 
+      <Section label="MATERIALS (FOR THE LIBRARY)">
+        <div className="flex flex-wrap gap-2">
+          {state.materials.map((m) => (
+            <span key={m.key} className="text-xs rounded-full pl-3 pr-1.5 py-1.5 flex items-center gap-1.5 border" style={{ borderColor: 'rgba(43,37,32,0.25)', background: '#fff' }}>
+              {m.label}
+              <button onClick={() => { if (confirm(`Remove material "${m.label}"? It will also be removed from any pieces using it.`)) onDeleteMaterial(m.key); }} aria-label="Remove material" style={{ lineHeight: 0 }}><Icon name="x" size={13} /></button>
+            </span>
+          ))}
+          {state.materials.length === 0 && <span className="text-xs" style={{ opacity: 0.5 }}>No materials yet.</span>}
+        </div>
+        <div className="flex gap-2 items-center pt-1">
+          <input value={matName} onChange={(e) => setMatName(e.target.value)} placeholder="New material, e.g. Oak" className="field" />
+          <button onClick={submitMaterial} disabled={!matName.trim()} className="tag-button disabled:opacity-40" aria-label="Add material"><Icon name="plus" size={15} color="var(--card)" /></button>
+        </div>
+      </Section>
+
+      <LibraryManager categories={state.categories} materials={state.materials} library={state.library} activeQuiz={activeQuiz} catMap={catMap}
+        onAddLibraryPiece={onAddLibraryPiece} onUpdateLibraryPiece={onUpdateLibraryPiece} onDeleteLibraryPiece={onDeleteLibraryPiece} onAddPiecesToRoom={onAddPiecesToRoom}
+        onAddMaterial={onAddMaterial} onAddCategory={onAddCategory} />
+
       <Section label={`ADD A PIECE TO "${activeQuiz.name.toUpperCase()}"`}>
         <input value={pName} onChange={(e) => setPName(e.target.value)} placeholder="Name (optional), e.g. Walnut Bench" className="field" />
         <input value={pUrl} onChange={(e) => setPUrl(e.target.value)} placeholder="Image URL (optional)" className="field" />
@@ -655,13 +969,13 @@ function App() {
   };
 
   const applyRemote = (base, data) => {
-    const next = {
+    const next = withDefaults({
       ...base,
       categories: data.categories,
       quizzes: data.quizzes,
       businessName: data.businessName != null ? data.businessName : base.businessName,
       destinationEmail: data.destinationEmail != null ? data.destinationEmail : base.destinationEmail,
-    };
+    });
     persist(next);
     setActiveQuizId(next.quizzes[0] ? next.quizzes[0].id : null);
     return next;
@@ -687,6 +1001,7 @@ function App() {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) { const p = JSON.parse(stored); if (p && p.version === 3 && Array.isArray(p.quizzes) && p.quizzes.length) s = p; }
     } catch (e) {}
+    s = withDefaults(s);
     setState(s);
     setActiveQuizId(s.quizzes[0].id);
     // a ?room= link jumps straight into that room once its pieces are ready
@@ -722,7 +1037,7 @@ function App() {
       const applied = {};
       setScores((prev) => { const n = { ...prev }; card.tags.forEach((t) => { n[t] = (n[t] || 0) + action.delta; applied[t] = (applied[t] || 0) + action.delta; }); return n; });
       // a full record of this reaction, so the team can read the run piece by piece
-      const response = { pieceId: card.id, pieceName: card.name, imageUrl: card.imageUrl, tags: [...card.tags], actionKey: action.key, actionLabel: action.label, delta: action.delta, note: currentNote };
+      const response = { pieceId: card.id, pieceName: card.name, imageUrl: card.imageUrl, tags: [...card.tags], colors: [...(card.colors || [])], accentColors: [...(card.accentColors || [])], actionKey: action.key, actionLabel: action.label, delta: action.delta, note: currentNote };
       setHistory((h) => [...h, { index, applied, response }]);
       setNote('');
       if (index + 1 >= runQuiz.pieces.length) setView('results');
@@ -749,8 +1064,16 @@ function App() {
   const onRenameQuiz = (qid, name) => updateQuiz(qid, (q) => ({ ...q, name, file: q.file || `${slug(name)}.json` }));
   const onDeleteQuiz = (qid) => { const rest = state.quizzes.filter((q) => q.id !== qid); persist({ ...state, quizzes: rest }); if (activeQuizId === qid) setActiveQuizId(rest[0].id); };
   const onAddCategory = (cat) => persist({ ...state, categories: [...state.categories, cat] });
-  const onDeleteCategory = (key) => persist({ ...state, categories: state.categories.filter((c) => c.key !== key), quizzes: state.quizzes.map((q) => ({ ...q, pieces: q.pieces.map((p) => ({ ...p, tags: p.tags.filter((t) => t !== key) })) })) });
+  const onDeleteCategory = (key) => persist({ ...state, categories: state.categories.filter((c) => c.key !== key), library: (state.library || []).map((p) => ({ ...p, tags: (p.tags || []).filter((t) => t !== key) })), quizzes: state.quizzes.map((q) => ({ ...q, pieces: q.pieces.map((p) => ({ ...p, tags: p.tags.filter((t) => t !== key) })) })) });
   const onSet = (patch) => persist({ ...state, ...patch });
+
+  // master library + materials vocabulary (the "big database" admin tooling)
+  const onAddMaterial = (m) => persist({ ...state, materials: [...(state.materials || []), m] });
+  const onDeleteMaterial = (key) => persist({ ...state, materials: (state.materials || []).filter((m) => m.key !== key), library: (state.library || []).map((p) => ({ ...p, materials: (p.materials || []).filter((k) => k !== key) })), quizzes: state.quizzes.map((q) => ({ ...q, pieces: q.pieces.map((p) => ({ ...p, materials: (p.materials || []).filter((k) => k !== key) })) })) });
+  const onAddLibraryPiece = (piece) => persist({ ...state, library: [...(state.library || []), piece] });
+  const onUpdateLibraryPiece = (pid, patch) => persist({ ...state, library: (state.library || []).map((p) => p.id === pid ? { ...p, ...patch } : p) });
+  const onDeleteLibraryPiece = (pid) => persist({ ...state, library: (state.library || []).filter((p) => p.id !== pid) });
+  const onAddPiecesToRoom = (qid, pieces) => updateQuiz(qid, (q) => ({ ...q, pieces: [...q.pieces, ...pieces] }));
 
   const onImport = (e) => {
     const file = e.target.files[0]; if (!file) return;
@@ -758,7 +1081,7 @@ function App() {
     reader.onload = (ev) => {
       try {
         const p = JSON.parse(ev.target.result);
-        if (p && p.version === 3 && Array.isArray(p.quizzes) && p.quizzes.length && Array.isArray(p.categories)) { persist(p); setActiveQuizId(p.quizzes[0].id); }
+        if (p && p.version === 3 && Array.isArray(p.quizzes) && p.quizzes.length && Array.isArray(p.categories)) { const np = withDefaults(p); persist(np); setActiveQuizId(np.quizzes[0].id); }
         else setError('That file does not look like a full config export.');
       } catch (err) { setError('Could not read that file.'); }
     };
@@ -819,7 +1142,7 @@ function App() {
           })()
         ) : <PickerView quizzes={state.quizzes} onPick={beginQuiz} />
       ) : view === 'quiz' ? (
-        <QuizView pieces={runQuiz.pieces} index={index} onAction={handleAction} onUndo={handleUndo} canUndo={history.length > 0} exiting={exiting} catMap={catMap} minRequired={minRequired} note={note} setNote={setNote} onStop={handleStop} isDesktop={isDesktop} vw={vp.w} vh={vp.h} />
+        <QuizView pieces={runQuiz.pieces} index={index} onAction={handleAction} onUndo={handleUndo} canUndo={history.length > 0} undoCount={history.length} exiting={exiting} catMap={catMap} minRequired={minRequired} note={note} setNote={setNote} onStop={handleStop} isDesktop={isDesktop} vw={vp.w} vh={vp.h} />
       ) : view === 'results' ? (
         <ResultsView scores={scores} counts={counts} usedKeys={usedKeys} responses={responses} catMap={catMap} quizName={runQuiz.name} destinationEmail={state.destinationEmail} businessName={state.businessName || 'our team'} onRestart={() => setView('picker')} />
       ) : (
@@ -827,8 +1150,11 @@ function App() {
           onAddPiece={onAddPiece} onTogglePieceTag={onTogglePieceTag} onDeletePiece={onDeletePiece} onUpdatePiece={onUpdatePiece}
           onAddQuiz={onAddQuiz} onRenameQuiz={onRenameQuiz} onDeleteQuiz={onDeleteQuiz}
           onAddCategory={onAddCategory} onDeleteCategory={onDeleteCategory}
+          onAddMaterial={onAddMaterial} onDeleteMaterial={onDeleteMaterial}
+          onAddLibraryPiece={onAddLibraryPiece} onUpdateLibraryPiece={onUpdateLibraryPiece} onDeleteLibraryPiece={onDeleteLibraryPiece} onAddPiecesToRoom={onAddPiecesToRoom}
           onSet={onSet} onImport={onImport} onReset={onResetAll} error={error} />
       )}
+      {view === 'picker' && !remote.loading && <InfoButton />}
     </div>
   );
 }
