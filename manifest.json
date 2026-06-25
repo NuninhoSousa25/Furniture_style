@@ -1,6 +1,6 @@
 {
   "businessName": "Your Studio",
-  "destinationEmail": "nunombsousa25@gmail.com",
+  "destinationEmail": "studio@example.com",
   "categories": [
     { "key": "scandinavian", "label": "Scandinavian", "color": "#E4DCC9", "desc": "Light wood, soft neutrals, and clean lines. Calm, functional, and a little cozy." },
     { "key": "industrial", "label": "Industrial", "color": "#46423C", "desc": "Raw metal, exposed wood, and visible structure. Built with a workshop edge." },
@@ -10,7 +10,6 @@
   ],
   "rooms": [
     { "id": "living-room", "name": "Living Room", "file": "living-room.json" },
-    { "id": "kitchen", "name": "Kitchen", "file": "kitchen.json" },
-    { "id": "kitchen", "name": "Potato", "file": "potato.json" }
+    { "id": "kitchen", "name": "Kitchen", "file": "kitchen.json" }
   ]
 }

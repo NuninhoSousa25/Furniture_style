@@ -37,7 +37,19 @@
      default the react preset to the automatic runtime, which emits bare
      `import` statements that break in a plain (non-module) page. -->
 <script type="text/plain" id="app-source">
-const { useState, useEffect, useRef } = React;
+const { useState, useEffect, useRef, useLayoutEffect } = React;
+
+/* ============================================================================
+   Find Your Style — single-file React app (compiled in-browser by Babel below).
+   Section map, top to bottom:
+     icons · helpers · defaults/state · deep links · remote loading ·
+     card + quiz (CardFace, StampOverlay, QuizView) · results (DetailedResponses,
+     ResultsView) · picker · info button · shared inputs (BlurInput, Section,
+     SwatchEditor) · master library + builder (LibraryManager) · admin (AdminView) ·
+     App (state, routing) · ReactDOM render.
+   When we split into index.html / index.css / index.js, the <style> block becomes
+   the CSS and everything in #app-source becomes the JS.
+   ============================================================================ */
 
 /* ---------------- icons ---------------- */
 function Icon({ name, size = 18, color = 'currentColor', fill = 'none', strokeWidth = 2 }) {
@@ -199,6 +211,10 @@ async function loadFromManifest(manifestUrl) {
   }
   return {
     categories: Array.isArray(m.categories) && m.categories.length ? m.categories : DEFAULT_CATEGORIES,
+    // materials vocabulary and the master library are shared via the manifest too;
+    // left undefined when the hosted manifest predates them, so local copies are kept.
+    materials: Array.isArray(m.materials) ? m.materials : undefined,
+    library: Array.isArray(m.library) ? m.library : undefined,
     quizzes,
     businessName: m.businessName,
     destinationEmail: m.destinationEmail,
@@ -261,7 +277,7 @@ function QuizView({ pieces, index, onAction, onUndo, canUndo, undoCount, exiting
   const dragSt = useRef(null);
   const [drag, setDrag] = useState({ x: 0, y: 0, active: false });
   // clear any offset the instant a new card mounts, before paint, so it never flashes in
-  React.useLayoutEffect(() => { setDrag({ x: 0, y: 0, active: false }); dragSt.current = null; }, [card && card.id]);
+  useLayoutEffect(() => { setDrag({ x: 0, y: 0, active: false }); dragSt.current = null; }, [card && card.id]);
   // thresholds are capped so they don't balloon on wide desktop cards — otherwise the
   // "Love it / Never" zone sits ~250px out and a normal mouse drag can never reach it.
   const thresholds = () => { const w = frameRef.current ? frameRef.current.getBoundingClientRect().width : 320; return { normal: Math.min(110, Math.max(60, w * 0.18)), strong: Math.min(190, Math.max(150, w * 0.42)) }; };
@@ -560,8 +576,7 @@ function Section({ label, children }) {
   );
 }
 
-/* ---------------- admin ---------------- */
-/* a row of color swatches with a picker to add more — used for main and accent colors */
+/* a row of color swatches with a picker to add more — shared by main and accent colors */
 function SwatchEditor({ colors, draft, setDraft, onAdd, onRemove }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -758,6 +773,7 @@ function LibraryManager({ categories, materials, library, activeQuiz, catMap, on
   );
 }
 
+/* ---------------- admin (the ?dev=true gear panel) ---------------- */
 function AdminView(props) {
   const { state, activeQuizId, setActiveQuizId, remote, onLoadRemote,
     onAddPiece, onTogglePieceTag, onDeletePiece, onUpdatePiece, onAddQuiz, onRenameQuiz, onDeleteQuiz,
@@ -783,6 +799,10 @@ function AdminView(props) {
     const manifest = {
       businessName: state.businessName, destinationEmail: state.destinationEmail,
       categories: state.categories,
+      // the shared materials vocabulary and master library travel with the manifest,
+      // so publishing it shares the whole database with every browser that loads it
+      materials: state.materials,
+      library: state.library,
       rooms: state.quizzes.map((q) => ({ id: q.id, name: q.name, file: q.file || `${slug(q.name)}.json` })),
     };
     download('manifest.json', JSON.stringify(manifest, null, 2));
@@ -809,7 +829,7 @@ function AdminView(props) {
           {state.manifestUrl && !remote.loading && <span className="font-mono text-xs" style={{ opacity: 0.55 }}>Active source set</span>}
         </div>
         {remote.error && <p className="text-xs" style={{ color: 'var(--rust)' }}>{remote.error}</p>}
-        <p className="text-xs" style={{ opacity: 0.55 }}>The host must allow cross-origin reads (CORS), or serve the files from the same site as this page. Loading replaces the rooms and categories below.</p>
+        <p className="text-xs" style={{ opacity: 0.55 }}>The host must allow cross-origin reads (CORS), or serve the files from the same site as this page. Loading replaces the rooms, categories, materials, and master library below with the hosted copy.</p>
       </Section>
 
       <Section label="PUBLISH (DOWNLOAD FILES TO HOST)">
@@ -819,7 +839,7 @@ function AdminView(props) {
             <button key={q.id} onClick={() => exportRoom(q)} className="ghost-button self-start"><Icon name="download" size={14} /> {q.file || `${slug(q.name)}.json`}</button>
           ))}
         </div>
-        <p className="text-xs" style={{ opacity: 0.55 }}>Upload these to the same folder on your host, then paste the manifest.json link above.</p>
+        <p className="text-xs" style={{ opacity: 0.55 }}>Upload these to the same folder on your host, then paste the manifest.json link above. <b>manifest.json</b> now carries the shared master library and materials, so publishing it shares the whole database with every browser that loads this source.</p>
       </Section>
 
       <Section label="WHERE RESULTS GO">
@@ -973,6 +993,9 @@ function App() {
       ...base,
       categories: data.categories,
       quizzes: data.quizzes,
+      // shared library + materials come from the manifest when present; otherwise keep local
+      materials: data.materials != null ? data.materials : base.materials,
+      library: data.library != null ? data.library : base.library,
       businessName: data.businessName != null ? data.businessName : base.businessName,
       destinationEmail: data.destinationEmail != null ? data.destinationEmail : base.destinationEmail,
     });
