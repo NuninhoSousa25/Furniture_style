@@ -272,32 +272,30 @@ function QuizView({ pieces, index, onAction, onUndo, canUndo, undoCount, exiting
   useEffect(() => { if (!card || !card.imageUrl) setAspect(PORTRAIT); }, [card && card.id]);
 
   // drag-to-swipe, one code path for mouse (PC) and touch (mobile) via Pointer Events.
-  // right = like / love it, left = pass / never; the further you drag, the stronger the action.
+  // Kept simple: right = Like, left = Pass. The double reactions (Never / Love it) live on
+  // the buttons only — swipe distance no longer changes the strength, just the direction.
   const frameRef = useRef(null);
   const dragSt = useRef(null);
   const [drag, setDrag] = useState({ x: 0, y: 0, active: false });
   // clear any offset the instant a new card mounts, before paint, so it never flashes in
   useLayoutEffect(() => { setDrag({ x: 0, y: 0, active: false }); dragSt.current = null; }, [card && card.id]);
-  // thresholds are capped so they don't balloon on wide desktop cards — otherwise the
-  // "Love it / Never" zone sits ~250px out and a normal mouse drag can never reach it.
-  const thresholds = () => { const w = frameRef.current ? frameRef.current.getBoundingClientRect().width : 320; return { normal: Math.min(110, Math.max(60, w * 0.18)), strong: Math.min(190, Math.max(150, w * 0.42)) }; };
-  const actionFor = (dx, strong) => dx > 0 ? (dx >= strong ? 'superLike' : 'like') : (dx <= -strong ? 'superDislike' : 'dislike');
+  // how far the card must travel before a swipe commits; capped so it stays reachable on wide desktop cards
+  const commitDistance = () => { const w = frameRef.current ? frameRef.current.getBoundingClientRect().width : 320; return Math.min(110, Math.max(60, w * 0.18)); };
+  const swipeKey = (dx) => (dx > 0 ? 'like' : 'dislike');
   const onPointerDown = (e) => { if (exiting) return; dragSt.current = { id: e.pointerId, sx: e.clientX, sy: e.clientY }; try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) {} setDrag({ x: 0, y: 0, active: true }); };
   const onPointerMove = (e) => { const d = dragSt.current; if (!d || d.id !== e.pointerId) return; setDrag({ x: e.clientX - d.sx, y: e.clientY - d.sy, active: true }); };
   const endDrag = (e) => {
     const d = dragSt.current; if (!d) return; dragSt.current = null;
     const dx = e.clientX != null ? e.clientX - d.sx : drag.x;
-    const { normal, strong } = thresholds();
-    const key = Math.abs(dx) >= normal ? actionFor(dx, strong) : null;
+    const key = Math.abs(dx) >= commitDistance() ? swipeKey(dx) : null;
     setDrag({ x: 0, y: 0, active: false });
     if (key) onAction(ACTIONS.find((a) => a.key === key));
   };
-  // live stamp while dragging, fading in with distance
+  // live stamp while dragging (Like or Pass only), fading in with distance
   let preview = null, previewOpacity = 0;
   if (drag.active && Math.abs(drag.x) > 8) {
-    const { normal, strong } = thresholds();
-    preview = ACTIONS.find((a) => a.key === actionFor(drag.x, strong));
-    previewOpacity = Math.min(1, Math.abs(drag.x) / (normal * 0.7));
+    preview = ACTIONS.find((a) => a.key === swipeKey(drag.x));
+    previewOpacity = Math.min(1, Math.abs(drag.x) / (commitDistance() * 0.7));
   }
   // the card frame fits each photo's shape on every screen size, so landscape photos
   // get a short wide card and portrait photos a tall one, with no letterboxing.
@@ -549,7 +547,7 @@ function InfoButton() {
             <p className="font-display text-2xl mb-4">How it works</p>
             <ol className="flex flex-col gap-3 text-sm" style={{ opacity: 0.9 }}>
               <li><b>Swipe or tap.</b> Drag a card right if you like a piece, left to pass — or just tap the buttons.</li>
-              <li><b>Go further for a strong reaction.</b> Drag all the way right for <i>Love it</i> or left for <i>Never</i> — these count double.</li>
+              <li><b>Feeling strongly?</b> Tap <i>Love it</i> or <i>Never</i> (they count double) when a piece really stands out.</li>
               <li><b>Add a note.</b> Say what you love or dislike about any piece. Totally optional.</li>
               <li><b>Change your mind.</b> Use <i>Undo</i> to step back through pieces and re-answer.</li>
               <li><b>Get your style.</b> Answer a handful of pieces, stop when you like, and we'll show your style profile to share with the studio.</li>
@@ -595,38 +593,55 @@ function SwatchEditor({ colors, draft, setDraft, onAdd, onRemove }) {
 /* ---------------- master library + quiz builder ----------------
    The "big database": add pieces with style tags, materials, main + accent colors,
    then filter the pool and drop a selected group into the active room. */
-function LibraryManager({ categories, materials, library, activeQuiz, catMap, onAddLibraryPiece, onUpdateLibraryPiece, onDeleteLibraryPiece, onAddPiecesToRoom, onAddMaterial, onAddCategory }) {
+function LibraryManager({ categories, materials, library, activeQuiz, catMap, onAddPieceTo, onUpdateLibraryPiece, onDeleteLibraryPiece, onAddPiecesToRoom, onAddMaterial, onAddCategory }) {
   const matMap = Object.fromEntries(materials.map((m) => [m.key, m]));
   const toggle = (arr, k) => (arr.includes(k) ? arr.filter((x) => x !== k) : [...arr, k]);
 
-  // add-to-library form
+  // one unified add-a-piece form, with a destination toggle for the library and/or the active room
   const [name, setName] = useState(''); const [url, setUrl] = useState('');
   const [styles, setStyles] = useState([]); const [mats, setMats] = useState([]);
   const [colors, setColors] = useState([]); const [accentColors, setAccentColors] = useState([]);
   const [colorDraft, setColorDraft] = useState('#C9A227'); const [accentDraft, setAccentDraft] = useState('#46423C');
   const [newStyle, setNewStyle] = useState(''); const [newMat, setNewMat] = useState('');
-  const valid = url.trim() && styles.length > 0;   // image + at least one style required; materials/colors optional
+  const [toLib, setToLib] = useState(true); const [toRoom, setToRoom] = useState(false);   // destinations
+  const valid = url.trim() && styles.length > 0 && (toLib || toRoom);   // image + ≥1 style + a destination
   // inline "add more tags": create a new vocabulary entry and select it right away
   const addStyleInline = () => { const label = newStyle.trim(); if (!label) return; const key = `${slug(label)}-${Date.now().toString(36).slice(-4)}`; onAddCategory({ key, label, color: NEW_TAG_PALETTE[Math.floor(Math.random() * NEW_TAG_PALETTE.length)], desc: `${label} style.`, custom: true }); setStyles((s) => [...s, key]); setNewStyle(''); };
   const addMatInline = () => { const label = newMat.trim(); if (!label) return; const key = `${slug(label)}-${Date.now().toString(36).slice(-4)}`; onAddMaterial({ key, label }); setMats((m) => [...m, key]); setNewMat(''); };
   const submit = () => {
     if (!valid) return;
-    onAddLibraryPiece({ id: `lib${Date.now()}`, name: name.trim(), imageUrl: url.trim(), tags: styles, materials: mats, colors, accentColors });
+    onAddPieceTo({ base: { name: name.trim(), imageUrl: url.trim(), tags: styles, materials: mats, colors, accentColors }, toLibrary: toLib, roomId: toRoom ? activeQuiz.id : null });
     setName(''); setUrl(''); setStyles([]); setMats([]); setColors([]); setAccentColors([]);
   };
 
-  // filter + select for building a room
-  const [fStyles, setFStyles] = useState([]); const [fMats, setFMats] = useState([]); const [fText, setFText] = useState('');
+  // filter + select for building a room. style/material filters are tri-state:
+  // off -> include -> exclude. The mode maps a key to 'in' | 'ex'.
+  const [fStyleMode, setFStyleMode] = useState({}); const [fMatMode, setFMatMode] = useState({}); const [fColorMode, setFColorMode] = useState({}); const [fText, setFText] = useState('');
   const [sel, setSel] = useState([]);
   // editing a library piece in place
   const [editingId, setEditingId] = useState(null);
   const [editColorDraft, setEditColorDraft] = useState('#C9A227'); const [editAccentDraft, setEditAccentDraft] = useState('#46423C');
+  const cycleMode = (setMap, key) => setMap((m) => { const nx = m[key] === 'in' ? 'ex' : m[key] === 'ex' ? undefined : 'in'; const n = { ...m }; if (nx) n[key] = nx; else delete n[key]; return n; });
+  const keysWith = (map, v) => Object.keys(map).filter((k) => map[k] === v);
+  const sIn = keysWith(fStyleMode, 'in'), sEx = keysWith(fStyleMode, 'ex');
+  const mIn = keysWith(fMatMode, 'in'), mEx = keysWith(fMatMode, 'ex');
+  const cIn = keysWith(fColorMode, 'in'), cEx = keysWith(fColorMode, 'ex');
+  // distinct colors across the library (main + accent), normalised to upper-case hex, for the color filter
+  const libColors = [...new Set(library.flatMap((p) => [...(p.colors || []), ...(p.accentColors || [])].map((c) => (c || '').toUpperCase())))].filter(Boolean).sort();
+  const filtersActive = !!(fText || sIn.length || sEx.length || mIn.length || mEx.length || cIn.length || cEx.length);
   const filtered = library.filter((p) => {
+    const tags = p.tags || [], mats = p.materials || [];
+    const cols = [...(p.colors || []), ...(p.accentColors || [])].map((c) => (c || '').toUpperCase());
     if (fText && !((p.name || '').toLowerCase().includes(fText.toLowerCase()))) return false;
-    if (fStyles.length && !fStyles.some((s) => (p.tags || []).includes(s))) return false;
-    if (fMats.length && !fMats.some((m) => (p.materials || []).includes(m))) return false;
+    if (sIn.length && !sIn.some((k) => tags.includes(k))) return false;   // must have one included style
+    if (sEx.some((k) => tags.includes(k))) return false;                  // must have none excluded
+    if (mIn.length && !mIn.some((k) => mats.includes(k))) return false;
+    if (mEx.some((k) => mats.includes(k))) return false;
+    if (cIn.length && !cIn.some((k) => cols.includes(k))) return false;
+    if (cEx.some((k) => cols.includes(k))) return false;
     return true;
   });
+  const clearFilters = () => { setFText(''); setFStyleMode({}); setFMatMode({}); setFColorMode({}); };
   const toggleSel = (id) => setSel((s) => toggle(s, id));
   const addToRoom = () => {
     const chosen = library.filter((p) => sel.includes(p.id));
@@ -639,11 +654,27 @@ function LibraryManager({ categories, materials, library, activeQuiz, catMap, on
   const chip = (active, color, onClick, label, key) => (
     <button key={key} onClick={onClick} className="text-xs rounded-full px-3 py-1.5 border" style={{ borderColor: active ? (color || 'var(--brass)') : 'rgba(43,37,32,0.2)', background: active ? (color || 'var(--brass)') : '#fff', color: active ? (color ? readableText(color) : 'var(--card)') : 'var(--ink)' }}>{label}</button>
   );
+  // tri-state filter chip: off (neutral) -> include (filled) -> exclude (rust, struck through)
+  const triChip = (mode, color, onClick, label, key) => {
+    const isIn = mode === 'in', isEx = mode === 'ex';
+    return (
+      <button key={key} onClick={onClick} title={isIn ? 'included — tap to exclude' : isEx ? 'excluded — tap to clear' : 'tap to include'} className="text-xs rounded-full px-3 py-1.5 border" style={{ borderColor: isIn ? (color || 'var(--brass)') : isEx ? 'var(--rust)' : 'rgba(43,37,32,0.2)', background: isIn ? (color || 'var(--brass)') : '#fff', color: isIn ? (color ? readableText(color) : 'var(--card)') : isEx ? 'var(--rust)' : 'var(--ink)', textDecoration: isEx ? 'line-through' : 'none' }}>{label}</button>
+    );
+  };
+  // tri-state color swatch: off (thin border) -> include (ink ring) -> exclude (rust ring + x, dimmed)
+  const colorChip = (mode, hex) => {
+    const isIn = mode === 'in', isEx = mode === 'ex';
+    return (
+      <button key={hex} onClick={() => cycleMode(setFColorMode, hex)} title={`${hex}${isIn ? ' — included' : isEx ? ' — excluded' : ' — tap to include'}`} className="relative rounded-full flex-shrink-0" style={{ width: '26px', height: '26px', background: hex, border: isIn ? '2px solid var(--ink)' : isEx ? '2px solid var(--rust)' : '1px solid rgba(43,37,32,0.25)', opacity: isEx ? 0.5 : 1 }}>
+        {isEx && <span className="absolute inset-0 flex items-center justify-center"><Icon name="x" size={14} color="var(--rust)" /></span>}
+      </button>
+    );
+  };
 
   return (
     <>
-      <Section label="ADD TO MASTER LIBRARY">
-        <p className="text-xs" style={{ opacity: 0.6 }}>The shared pool of pieces. Every piece needs an image and at least one style; materials and colors are optional. Build rooms from it below.</p>
+      <Section label="ADD A PIECE">
+        <p className="text-xs" style={{ opacity: 0.6 }}>One form for everything. Every piece needs an image and at least one style; materials and colors are optional. Choose where it goes below — the shared master library and/or the current room.</p>
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name (optional), e.g. Walnut Bench" className="field" />
         <div>
           <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="Image URL (required)" className="field" style={{ borderColor: url.trim() ? undefined : 'var(--rust)' }} />
@@ -673,7 +704,15 @@ function LibraryManager({ categories, materials, library, activeQuiz, catMap, on
           <p className="text-xs mb-2" style={{ opacity: 0.6 }}>Accent colors (optional)</p>
           <SwatchEditor colors={accentColors} draft={accentDraft} setDraft={setAccentDraft} onAdd={() => setAccentColors((c) => (c.includes(accentDraft) ? c : [...c, accentDraft]))} onRemove={(c) => setAccentColors((cs) => cs.filter((x) => x !== c))} />
         </div>
-        <button onClick={submit} disabled={!valid} className="tag-button self-start disabled:opacity-40"><Icon name="plus" size={15} color="var(--card)" /> Add to library</button>
+        <div>
+          <p className="text-xs mb-2" style={{ opacity: 0.6 }}>Add to</p>
+          <div className="flex flex-wrap gap-2">
+            {chip(toLib, null, () => setToLib((v) => !v), 'Master library', 'dest-lib')}
+            {chip(toRoom, null, () => setToRoom((v) => !v), `Room: ${activeQuiz.name}`, 'dest-room')}
+          </div>
+          {!toLib && !toRoom && <p className="text-xs mt-1" style={{ color: 'var(--rust)', opacity: 0.8 }}>Pick at least one destination.</p>}
+        </div>
+        <button onClick={submit} disabled={!valid} className="tag-button self-start disabled:opacity-40"><Icon name="plus" size={15} color="var(--card)" /> Add{toLib && toRoom ? ' to library + room' : toLib ? ' to library' : toRoom ? ` to "${activeQuiz.name}"` : ''}</button>
       </Section>
 
       <Section label={`BUILD "${activeQuiz.name.toUpperCase()}" FROM LIBRARY`}>
@@ -683,8 +722,18 @@ function LibraryManager({ categories, materials, library, activeQuiz, catMap, on
         ) : (
           <>
             <input value={fText} onChange={(e) => setFText(e.target.value)} placeholder="Search by name" className="field" />
-            <div className="flex flex-wrap gap-2">{categories.map((c) => chip(fStyles.includes(c.key), c.color, () => setFStyles((s) => toggle(s, c.key)), c.label, c.key))}</div>
-            <div className="flex flex-wrap gap-2">{materials.map((m) => chip(fMats.includes(m.key), null, () => setFMats((s) => toggle(s, m.key)), m.label, m.key))}</div>
+            <div className="flex items-center justify-between">
+              <p className="text-xs" style={{ opacity: 0.55 }}>Tap a tag to include, tap again to exclude (struck through).</p>
+              {filtersActive && <button onClick={clearFilters} className="ghost-button">Clear filters</button>}
+            </div>
+            <div className="flex flex-wrap gap-2">{categories.map((c) => triChip(fStyleMode[c.key], c.color, () => cycleMode(setFStyleMode, c.key), c.label, c.key))}</div>
+            <div className="flex flex-wrap gap-2">{materials.map((m) => triChip(fMatMode[m.key], null, () => cycleMode(setFMatMode, m.key), m.label, m.key))}</div>
+            {libColors.length > 0 && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs" style={{ opacity: 0.55 }}>Colors</span>
+                {libColors.map((hex) => colorChip(fColorMode[hex], hex))}
+              </div>
+            )}
             <div className="flex items-center justify-between">
               <span className="font-mono text-xs" style={{ opacity: 0.6 }}>{filtered.length} match{filtered.length === 1 ? '' : 'es'} · {sel.length} selected</span>
               <div className="flex gap-2">
@@ -776,14 +825,13 @@ function LibraryManager({ categories, materials, library, activeQuiz, catMap, on
 /* ---------------- admin (the ?dev=true gear panel) ---------------- */
 function AdminView(props) {
   const { state, activeQuizId, setActiveQuizId, remote, onLoadRemote,
-    onAddPiece, onTogglePieceTag, onDeletePiece, onUpdatePiece, onAddQuiz, onRenameQuiz, onDeleteQuiz,
+    onTogglePieceTag, onDeletePiece, onUpdatePiece, onAddQuiz, onRenameQuiz, onDeleteQuiz,
     onAddCategory, onDeleteCategory, onAddMaterial, onDeleteMaterial,
-    onAddLibraryPiece, onUpdateLibraryPiece, onDeleteLibraryPiece, onAddPiecesToRoom,
+    onAddPieceTo, onUpdateLibraryPiece, onDeleteLibraryPiece, onAddPiecesToRoom,
     onSet, onImport, onReset, error } = props;
 
   const catMap = Object.fromEntries(state.categories.map((c) => [c.key, c]));
   const activeQuiz = state.quizzes.find((q) => q.id === activeQuizId) || state.quizzes[0];
-  const [pName, setPName] = useState(''); const [pUrl, setPUrl] = useState(''); const [pTags, setPTags] = useState([]);
   const [editingId, setEditingId] = useState(null);
   const [newQuizName, setNewQuizName] = useState('');
   const [catName, setCatName] = useState(''); const [catColor, setCatColor] = useState(NEW_TAG_PALETTE[0]); const [catDesc, setCatDesc] = useState('');
@@ -791,8 +839,6 @@ function AdminView(props) {
   const [manifestDraft, setManifestDraft] = useState(state.manifestUrl || '');
   const submitMaterial = () => { if (!matName.trim()) return; onAddMaterial({ key: `${slug(matName)}-${Date.now().toString(36).slice(-4)}`, label: matName.trim() }); setMatName(''); };
 
-  const toggleNewTag = (k) => setPTags((p) => (p.includes(k) ? p.filter((t) => t !== k) : [...p, k]));
-  const submitPiece = () => { if (pTags.length === 0) return; onAddPiece(activeQuiz.id, { id: `p${Date.now()}`, name: pName.trim(), imageUrl: pUrl.trim(), tags: pTags }); setPName(''); setPUrl(''); setPTags([]); };
   const submitCategory = () => { if (!catName.trim()) return; onAddCategory({ key: `${slug(catName)}-${Date.now().toString(36).slice(-4)}`, label: catName.trim(), color: catColor, desc: catDesc.trim() || `${catName.trim()} style.`, custom: true }); setCatName(''); setCatDesc(''); setCatColor(NEW_TAG_PALETTE[Math.floor(Math.random() * NEW_TAG_PALETTE.length)]); };
 
   const exportManifest = () => {
@@ -903,22 +949,8 @@ function AdminView(props) {
       </Section>
 
       <LibraryManager categories={state.categories} materials={state.materials} library={state.library} activeQuiz={activeQuiz} catMap={catMap}
-        onAddLibraryPiece={onAddLibraryPiece} onUpdateLibraryPiece={onUpdateLibraryPiece} onDeleteLibraryPiece={onDeleteLibraryPiece} onAddPiecesToRoom={onAddPiecesToRoom}
+        onAddPieceTo={onAddPieceTo} onUpdateLibraryPiece={onUpdateLibraryPiece} onDeleteLibraryPiece={onDeleteLibraryPiece} onAddPiecesToRoom={onAddPiecesToRoom}
         onAddMaterial={onAddMaterial} onAddCategory={onAddCategory} />
-
-      <Section label={`ADD A PIECE TO "${activeQuiz.name.toUpperCase()}"`}>
-        <input value={pName} onChange={(e) => setPName(e.target.value)} placeholder="Name (optional), e.g. Walnut Bench" className="field" />
-        <input value={pUrl} onChange={(e) => setPUrl(e.target.value)} placeholder="Image URL (optional)" className="field" />
-        <div>
-          <p className="text-xs mb-2" style={{ opacity: 0.6 }}>Style tags (pick at least one)</p>
-          <div className="flex flex-wrap gap-2">
-            {state.categories.map((c) => (
-              <button key={c.key} onClick={() => toggleNewTag(c.key)} className="text-xs rounded-full px-3 py-1.5 border" style={{ borderColor: pTags.includes(c.key) ? c.color : 'rgba(43,37,32,0.2)', background: pTags.includes(c.key) ? c.color : '#fff', color: pTags.includes(c.key) ? (c.text || readableText(c.color)) : 'var(--ink)' }}>{c.label}</button>
-            ))}
-          </div>
-        </div>
-        <button onClick={submitPiece} disabled={pTags.length === 0} className="tag-button self-start disabled:opacity-40"><Icon name="plus" size={15} color="var(--card)" /> Add to room</button>
-      </Section>
 
       <div>
         <p className="font-mono text-xs tracking-widest mb-3" style={{ opacity: 0.6 }}>PIECES IN "{activeQuiz.name.toUpperCase()}" ({activeQuiz.pieces.length})</p>
@@ -1079,7 +1111,6 @@ function App() {
   const handleStop = () => { if (exiting) return; setView('results'); };
 
   const updateQuiz = (qid, fn) => persist({ ...state, quizzes: state.quizzes.map((q) => q.id === qid ? fn(q) : q) });
-  const onAddPiece = (qid, piece) => updateQuiz(qid, (q) => ({ ...q, pieces: [...q.pieces, piece] }));
   const onDeletePiece = (qid, pid) => updateQuiz(qid, (q) => ({ ...q, pieces: q.pieces.filter((p) => p.id !== pid) }));
   const onUpdatePiece = (qid, pid, patch) => updateQuiz(qid, (q) => ({ ...q, pieces: q.pieces.map((p) => p.id === pid ? { ...p, ...patch } : p) }));
   const onTogglePieceTag = (qid, pid, key) => updateQuiz(qid, (q) => ({ ...q, pieces: q.pieces.map((p) => p.id === pid ? { ...p, tags: p.tags.includes(key) ? p.tags.filter((t) => t !== key) : [...p.tags, key] } : p) }));
@@ -1093,10 +1124,18 @@ function App() {
   // master library + materials vocabulary (the "big database" admin tooling)
   const onAddMaterial = (m) => persist({ ...state, materials: [...(state.materials || []), m] });
   const onDeleteMaterial = (key) => persist({ ...state, materials: (state.materials || []).filter((m) => m.key !== key), library: (state.library || []).map((p) => ({ ...p, materials: (p.materials || []).filter((k) => k !== key) })), quizzes: state.quizzes.map((q) => ({ ...q, pieces: q.pieces.map((p) => ({ ...p, materials: (p.materials || []).filter((k) => k !== key) })) })) });
-  const onAddLibraryPiece = (piece) => persist({ ...state, library: [...(state.library || []), piece] });
   const onUpdateLibraryPiece = (pid, patch) => persist({ ...state, library: (state.library || []).map((p) => p.id === pid ? { ...p, ...patch } : p) });
   const onDeleteLibraryPiece = (pid) => persist({ ...state, library: (state.library || []).filter((p) => p.id !== pid) });
   const onAddPiecesToRoom = (qid, pieces) => updateQuiz(qid, (q) => ({ ...q, pieces: [...q.pieces, ...pieces] }));
+  // unified "add a piece": writes to the library and/or a room in ONE persist (avoids stale-state clobber)
+  const onAddPieceTo = ({ base, toLibrary, roomId }) => {
+    const stamp = Date.now();
+    const libId = `lib${stamp}`;
+    let next = { ...state };
+    if (toLibrary) next = { ...next, library: [...(next.library || []), { id: libId, ...base }] };
+    if (roomId) next = { ...next, quizzes: next.quizzes.map((q) => q.id === roomId ? { ...q, pieces: [...q.pieces, { id: `${roomId}-${stamp}`, ...base, libId: toLibrary ? libId : undefined }] } : q) };
+    persist(next);
+  };
 
   const onImport = (e) => {
     const file = e.target.files[0]; if (!file) return;
@@ -1170,11 +1209,11 @@ function App() {
         <ResultsView scores={scores} counts={counts} usedKeys={usedKeys} responses={responses} catMap={catMap} quizName={runQuiz.name} destinationEmail={state.destinationEmail} businessName={state.businessName || 'our team'} onRestart={() => setView('picker')} />
       ) : (
         <AdminView state={state} activeQuizId={activeQuizId} setActiveQuizId={setActiveQuizId} remote={remote} onLoadRemote={doLoadRemote}
-          onAddPiece={onAddPiece} onTogglePieceTag={onTogglePieceTag} onDeletePiece={onDeletePiece} onUpdatePiece={onUpdatePiece}
+          onTogglePieceTag={onTogglePieceTag} onDeletePiece={onDeletePiece} onUpdatePiece={onUpdatePiece}
           onAddQuiz={onAddQuiz} onRenameQuiz={onRenameQuiz} onDeleteQuiz={onDeleteQuiz}
           onAddCategory={onAddCategory} onDeleteCategory={onDeleteCategory}
           onAddMaterial={onAddMaterial} onDeleteMaterial={onDeleteMaterial}
-          onAddLibraryPiece={onAddLibraryPiece} onUpdateLibraryPiece={onUpdateLibraryPiece} onDeleteLibraryPiece={onDeleteLibraryPiece} onAddPiecesToRoom={onAddPiecesToRoom}
+          onAddPieceTo={onAddPieceTo} onUpdateLibraryPiece={onUpdateLibraryPiece} onDeleteLibraryPiece={onDeleteLibraryPiece} onAddPiecesToRoom={onAddPiecesToRoom}
           onSet={onSet} onImport={onImport} onReset={onResetAll} error={error} />
       )}
       {view === 'picker' && !remote.loading && <InfoButton />}
