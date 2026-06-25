@@ -11,5 +11,6 @@
   "rooms": [
     { "id": "living-room", "name": "Living Room", "file": "living-room.json" },
     { "id": "kitchen", "name": "Kitchen", "file": "kitchen.json" }
+    { "id": "Potato", "name": "Potato", "file": "potato.json" },
   ]
 }
