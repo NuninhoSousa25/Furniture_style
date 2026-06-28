@@ -1,88 +1,86 @@
 {
+  "version": 4,
   "businessName": "Your Studio",
   "destinationEmail": "studio@example.com",
+  "facets": [
+    { "key": "style", "label": "Style", "kind": "tag", "scored": true, "builtin": true },
+    { "key": "material", "label": "Material", "kind": "tag", "builtin": true },
+    { "key": "object", "label": "Object", "kind": "tag", "builtin": true },
+    { "key": "color", "label": "Color", "kind": "swatch", "builtin": true },
+    { "key": "palette", "label": "Palette", "kind": "palette", "builtin": true }
+  ],
+  "tags": [
+    { "id": "scandinavian", "facet": "style", "label": "Scandinavian", "color": "#E4DCC9", "desc": "Light wood, soft neutrals, and clean lines. Calm, functional, and a little cozy." },
+    { "id": "industrial", "facet": "style", "label": "Industrial", "color": "#46423C", "desc": "Raw metal, exposed wood, and visible structure. Built with a workshop edge." },
+    { "id": "midcentury", "facet": "style", "label": "Mid-Century Modern", "color": "#5E7A6C", "desc": "Tapered legs, warm walnut, and gentle curves. Retro shapes that still feel current." },
+    { "id": "rustic", "facet": "style", "label": "Rustic & Farmhouse", "color": "#9C7B52", "desc": "Reclaimed wood, worn finishes, and handcrafted joints. Furniture with some history in it." },
+    { "id": "minimalist", "facet": "style", "label": "Minimalist", "color": "#F2EEE6", "desc": "Pared-back forms and quiet color. Pieces that earn their place in the room." },
+    { "id": "wood", "facet": "material", "label": "Wood", "custom": true },
+    { "id": "metal", "facet": "material", "label": "Metal", "custom": true },
+    { "id": "leather", "facet": "material", "label": "Leather", "custom": true },
+    { "id": "fabric", "facet": "material", "label": "Fabric", "custom": true },
+    { "id": "velvet", "facet": "material", "label": "Velvet", "custom": true },
+    { "id": "rattan", "facet": "material", "label": "Rattan / Cane", "custom": true },
+    { "id": "glass", "facet": "material", "label": "Glass", "custom": true },
+    { "id": "stone", "facet": "material", "label": "Stone / Marble", "custom": true },
+    { "id": "chalet-chic-mkkj", "facet": "style", "label": "Chalet Chic", "color": "#5E7A6C", "desc": "Chalet Chic style.", "custom": true },
+    { "id": "brutalism-li25", "facet": "style", "label": "Brutalism", "color": "#9C7B52", "desc": "Brutalism style.", "custom": true },
+    { "id": "dark-academia-kuxw", "facet": "style", "label": "Dark Academia", "color": "#46423C", "desc": "Dark Academia style.", "custom": true },
+    { "id": "mediterranean-jre0", "facet": "style", "label": "Mediterranean", "color": "#8C9A6B", "desc": "Mediterranean style.", "custom": true },
+    { "id": "70s-revival-bdtr", "facet": "style", "label": "70s Revival", "color": "#7C6A8A", "desc": "70s Revival style.", "custom": true },
+    { "id": "coastal", "facet": "style", "label": "Coastal", "color": "#3F6B6B", "desc": "Coastal style.", "custom": true }
+  ],
   "categories": [
-    {
-      "key": "scandinavian",
-      "label": "Scandinavian",
-      "color": "#E4DCC9",
-      "desc": "Light wood, soft neutrals, and clean lines. Calm, functional, and a little cozy."
-    },
-    {
-      "key": "industrial",
-      "label": "Industrial",
-      "color": "#46423C",
-      "desc": "Raw metal, exposed wood, and visible structure. Built with a workshop edge."
-    },
-    {
-      "key": "midcentury",
-      "label": "Mid-Century Modern",
-      "color": "#5E7A6C",
-      "desc": "Tapered legs, warm walnut, and gentle curves. Retro shapes that still feel current."
-    },
-    {
-      "key": "rustic",
-      "label": "Rustic & Farmhouse",
-      "color": "#9C7B52",
-      "desc": "Reclaimed wood, worn finishes, and handcrafted joints. Furniture with some history in it."
-    },
-    {
-      "key": "minimalist",
-      "label": "Minimalist",
-      "color": "#F2EEE6",
-      "desc": "Pared-back forms and quiet color. Pieces that earn their place in the room."
-    }
+    { "key": "scandinavian", "label": "Scandinavian", "color": "#E4DCC9", "desc": "Light wood, soft neutrals, and clean lines. Calm, functional, and a little cozy." },
+    { "key": "industrial", "label": "Industrial", "color": "#46423C", "desc": "Raw metal, exposed wood, and visible structure. Built with a workshop edge." },
+    { "key": "midcentury", "label": "Mid-Century Modern", "color": "#5E7A6C", "desc": "Tapered legs, warm walnut, and gentle curves. Retro shapes that still feel current." },
+    { "key": "rustic", "label": "Rustic & Farmhouse", "color": "#9C7B52", "desc": "Reclaimed wood, worn finishes, and handcrafted joints. Furniture with some history in it." },
+    { "key": "minimalist", "label": "Minimalist", "color": "#F2EEE6", "desc": "Pared-back forms and quiet color. Pieces that earn their place in the room." },
+    { "key": "chalet-chic-mkkj", "label": "Chalet Chic", "color": "#5E7A6C", "desc": "Chalet Chic style.", "custom": true },
+    { "key": "brutalism-li25", "label": "Brutalism", "color": "#9C7B52", "desc": "Brutalism style.", "custom": true },
+    { "key": "dark-academia-kuxw", "label": "Dark Academia", "color": "#46423C", "desc": "Dark Academia style.", "custom": true },
+    { "key": "mediterranean-jre0", "label": "Mediterranean", "color": "#8C9A6B", "desc": "Mediterranean style.", "custom": true },
+    { "key": "70s-revival-bdtr", "label": "70s Revival", "color": "#7C6A8A", "desc": "70s Revival style.", "custom": true },
+    { "key": "coastal", "label": "Coastal", "color": "#3F6B6B", "desc": "Coastal style.", "custom": true }
   ],
   "materials": [
-    {
-      "key": "wood",
-      "label": "Wood"
-    },
-    {
-      "key": "metal",
-      "label": "Metal"
-    },
-    {
-      "key": "leather",
-      "label": "Leather"
-    },
-    {
-      "key": "fabric",
-      "label": "Fabric"
-    },
-    {
-      "key": "velvet",
-      "label": "Velvet"
-    },
-    {
-      "key": "rattan",
-      "label": "Rattan / Cane"
-    },
-    {
-      "key": "glass",
-      "label": "Glass"
-    },
-    {
-      "key": "stone",
-      "label": "Stone / Marble"
-    }
+    { "key": "wood", "label": "Wood" },
+    { "key": "metal", "label": "Metal" },
+    { "key": "leather", "label": "Leather" },
+    { "key": "fabric", "label": "Fabric" },
+    { "key": "velvet", "label": "Velvet" },
+    { "key": "rattan", "label": "Rattan / Cane" },
+    { "key": "glass", "label": "Glass" },
+    { "key": "stone", "label": "Stone / Marble" }
   ],
-  "library": [],
+  "library": [
+    { "id": "lr01", "name": "Pale Oak Lounge Chair", "imageUrl": "https://your-site.com/img/oak-lounge.jpg", "tags": ["scandinavian"], "colors": [], "accentColors": [] },
+    { "id": "lr02", "name": "Linen-Wrapped Sofa", "imageUrl": "", "tags": ["scandinavian", "minimalist"], "colors": [], "accentColors": [] },
+    { "id": "lr03", "name": "Blackened Steel Shelving", "imageUrl": "", "tags": ["industrial"], "colors": [], "accentColors": [] },
+    { "id": "lr04", "name": "Reclaimed Pipe Coffee Table", "imageUrl": "", "tags": ["industrial", "rustic"], "colors": [], "accentColors": [] },
+    { "id": "lr05", "name": "Tapered-Leg Armchair", "imageUrl": "", "tags": ["midcentury"], "colors": [], "accentColors": [] },
+    { "id": "lr06", "name": "Walnut Credenza", "imageUrl": "", "tags": ["midcentury"], "colors": [], "accentColors": [] },
+    { "id": "lr07", "name": "Reclaimed Plank Console", "imageUrl": "", "tags": ["rustic"], "colors": [], "accentColors": [] },
+    { "id": "lr08", "name": "Bare Oak Bench", "imageUrl": "", "tags": ["minimalist"], "colors": [], "accentColors": [] },
+    { "id": "k01", "name": "Pale Birch Cabinet Run", "imageUrl": "", "tags": ["scandinavian"], "colors": [], "accentColors": [] },
+    { "id": "k02", "name": "Handleless Matte Cabinets", "imageUrl": "", "tags": ["minimalist", "scandinavian"], "colors": [], "accentColors": [] },
+    { "id": "k03", "name": "Black Steel Island Frame", "imageUrl": "", "tags": ["industrial"], "colors": [], "accentColors": [] },
+    { "id": "k04", "name": "Open Pipe Shelf Station", "imageUrl": "", "tags": ["industrial"], "colors": [], "accentColors": [] },
+    { "id": "k05", "name": "Walnut Slat Breakfast Bar", "imageUrl": "", "tags": ["midcentury"], "colors": [], "accentColors": [] },
+    { "id": "k06", "name": "Reclaimed Butcher Block Island", "imageUrl": "", "tags": ["rustic"], "colors": [], "accentColors": [] },
+    { "id": "k07", "name": "Farmhouse Apron Sink Unit", "imageUrl": "", "tags": ["rustic"], "colors": [], "accentColors": [] },
+    { "id": "k08", "name": "Flat White Slab Pantry", "imageUrl": "", "tags": ["minimalist"], "colors": [], "accentColors": [] },
+    { "id": "p1781617059701", "name": "Room", "imageUrl": "https://hips.hearstapps.com/hmg-prod/images/direct-stoves-chalet-chic-6880c36b9e63f.jpg?crop=1xw:1xh;center,top&resize=980:*", "tags": ["chalet-chic-mkkj"], "colors": [], "accentColors": [] },
+    { "id": "p1781617451778", "name": "Room", "imageUrl": "https://www.thestylesaloniste.com/wp-content/uploads/2025/10/brutalist-interior-design-1.png.webp", "tags": ["brutalism-li25"], "colors": [], "accentColors": [] },
+    { "id": "p1781617647752", "name": "Room", "imageUrl": "https://cdn.shopify.com/s/files/1/0576/2754/1656/files/Modern_dark_academia_living_room_image.jpg?v=1763217743", "tags": ["dark-academia-kuxw"], "colors": [], "accentColors": [] },
+    { "id": "p1781617818748", "name": "Room", "imageUrl": "https://ksdesign.com.cy/wp-content/uploads/2020/09/Mediterranean-Style-living-room-design-wooden-beams.jpg", "tags": ["mediterranean-jre0"], "colors": [], "accentColors": [] },
+    { "id": "p1781619457415", "name": "Room", "imageUrl": "https://hips.hearstapps.com/hmg-prod/images/farmhouse-living-room-hbx070123ashleymontgomery-004-1-64cbed55db220.jpeg?crop=0.836xw:1.00xh;0.0760xw,0", "tags": ["rustic"], "colors": [], "accentColors": [] },
+    { "id": "p1781619489674", "name": "Room", "imageUrl": "https://hips.hearstapps.com/hmg-prod/images/hillarys-x-poodle-and-blonde-70s-6880aa978dc4a.jpg?crop=1.00xw:0.845xh;0,0.0678xh", "tags": ["70s-revival-bdtr"], "colors": [], "accentColors": [] },
+    { "id": "p1781619526646", "name": "Room", "imageUrl": "https://images2.naintrading.com/images/1200/comp_2_202508011155MJ-252167.jpg", "tags": ["coastal"], "colors": [], "accentColors": [] }
+  ],
   "rooms": [
-    {
-      "id": "living-room",
-      "name": "Living Room",
-      "file": "living-room.json"
-    },
-    {
-      "id": "kitchen",
-      "name": "Kitchen",
-      "file": "kitchen.json"
-    },
-    {
-      "id": "q-1782402873269",
-      "name": "Potato",
-      "file": "potato.json"
-    }
+    { "id": "living-room", "name": "Living Room", "file": "living-room.json" },
+    { "id": "kitchen", "name": "Kitchen", "file": "kitchen.json" },
+    { "id": "q-1782402873269", "name": "Potato", "file": "potato.json" }
   ]
 }

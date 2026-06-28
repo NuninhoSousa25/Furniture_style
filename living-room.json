@@ -1,13 +1,13 @@
 {
   "name": "Living Room",
-  "pieces": [
-    { "id": "lr01", "name": "Pale Oak Lounge Chair", "imageUrl": "https://your-site.com/img/oak-lounge.jpg", "tags": ["scandinavian"] },
-    { "id": "lr02", "name": "Linen-Wrapped Sofa", "imageUrl": "", "tags": ["scandinavian", "minimalist"] },
-    { "id": "lr03", "name": "Blackened Steel Shelving", "imageUrl": "", "tags": ["industrial"] },
-    { "id": "lr04", "name": "Reclaimed Pipe Coffee Table", "imageUrl": "", "tags": ["industrial", "rustic"] },
-    { "id": "lr05", "name": "Tapered-Leg Armchair", "imageUrl": "", "tags": ["midcentury"] },
-    { "id": "lr06", "name": "Walnut Credenza", "imageUrl": "", "tags": ["midcentury"] },
-    { "id": "lr07", "name": "Reclaimed Plank Console", "imageUrl": "", "tags": ["rustic"] },
-    { "id": "lr08", "name": "Bare Oak Bench", "imageUrl": "", "tags": ["minimalist"] }
+  "members": [
+    { "libId": "lr01" },
+    { "libId": "lr02" },
+    { "libId": "lr03" },
+    { "libId": "lr04" },
+    { "libId": "lr05" },
+    { "libId": "lr06" },
+    { "libId": "lr07" },
+    { "libId": "lr08" }
   ]
 }

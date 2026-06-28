@@ -1,13 +1,13 @@
 {
   "name": "Kitchen",
-  "pieces": [
-    { "id": "k01", "name": "Pale Birch Cabinet Run", "imageUrl": "", "tags": ["scandinavian"] },
-    { "id": "k02", "name": "Handleless Matte Cabinets", "imageUrl": "", "tags": ["minimalist", "scandinavian"] },
-    { "id": "k03", "name": "Black Steel Island Frame", "imageUrl": "", "tags": ["industrial"] },
-    { "id": "k04", "name": "Open Pipe Shelf Station", "imageUrl": "", "tags": ["industrial"] },
-    { "id": "k05", "name": "Walnut Slat Breakfast Bar", "imageUrl": "", "tags": ["midcentury"] },
-    { "id": "k06", "name": "Reclaimed Butcher Block Island", "imageUrl": "", "tags": ["rustic"] },
-    { "id": "k07", "name": "Farmhouse Apron Sink Unit", "imageUrl": "", "tags": ["rustic"] },
-    { "id": "k08", "name": "Flat White Slab Pantry", "imageUrl": "", "tags": ["minimalist"] }
+  "members": [
+    { "libId": "k01" },
+    { "libId": "k02" },
+    { "libId": "k03" },
+    { "libId": "k04" },
+    { "libId": "k05" },
+    { "libId": "k06" },
+    { "libId": "k07" },
+    { "libId": "k08" }
   ]
 }

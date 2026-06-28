@@ -1,61 +1,12 @@
 {
-  "name": "Living Room",
-  "pieces": [
-    {
-      "id": "p1781617059701",
-      "name": "Room",
-      "imageUrl": "https://hips.hearstapps.com/hmg-prod/images/direct-stoves-chalet-chic-6880c36b9e63f.jpg?crop=1xw:1xh;center,top&resize=980:*",
-      "tags": [
-        "chalet-chic-mkkj"
-      ]
-    },
-    {
-      "id": "p1781617451778",
-      "name": "Room",
-      "imageUrl": "https://www.thestylesaloniste.com/wp-content/uploads/2025/10/brutalist-interior-design-1.png.webp",
-      "tags": [
-        "brutalism-li25"
-      ]
-    },
-    {
-      "id": "p1781617647752",
-      "name": "Room",
-      "imageUrl": "https://cdn.shopify.com/s/files/1/0576/2754/1656/files/Modern_dark_academia_living_room_image.jpg?v=1763217743",
-      "tags": [
-        "dark-academia-kuxw"
-      ]
-    },
-    {
-      "id": "p1781617818748",
-      "name": "Room",
-      "imageUrl": "https://ksdesign.com.cy/wp-content/uploads/2020/09/Mediterranean-Style-living-room-design-wooden-beams.jpg",
-      "tags": [
-        "mediterranean-jre0"
-      ]
-    },
-    {
-      "id": "p1781619457415",
-      "name": "Room",
-      "imageUrl": "https://hips.hearstapps.com/hmg-prod/images/farmhouse-living-room-hbx070123ashleymontgomery-004-1-64cbed55db220.jpeg?crop=0.836xw:1.00xh;0.0760xw,0",
-      "tags": [
-        "rustic"
-      ]
-    },
-    {
-      "id": "p1781619489674",
-      "name": "Room",
-      "imageUrl": "https://hips.hearstapps.com/hmg-prod/images/hillarys-x-poodle-and-blonde-70s-6880aa978dc4a.jpg?crop=1.00xw:0.845xh;0,0.0678xh",
-      "tags": [
-        "70s-revival-bdtr"
-      ]
-    },
-    {
-      "id": "p1781619526646",
-      "name": "Room",
-      "imageUrl": "https://images2.naintrading.com/images/1200/comp_2_202508011155MJ-252167.jpg",
-      "tags": [
-        "coastal"
-      ]
-    }
+  "name": "Potato",
+  "members": [
+    { "libId": "p1781617059701" },
+    { "libId": "p1781617451778" },
+    { "libId": "p1781617647752" },
+    { "libId": "p1781617818748" },
+    { "libId": "p1781619457415" },
+    { "libId": "p1781619489674" },
+    { "libId": "p1781619526646" }
   ]
 }
