@@ -1,0 +1,18 @@
+  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Montserrat:wght@300;400;500;600&display=swap');
+  html, body { margin: 0; padding: 0; }
+  .font-display { font-family: 'Cormorant Garamond', serif; }
+  .font-mono { font-family: 'Montserrat', sans-serif; }
+  .tag-button { display: inline-flex; align-items: center; gap: 6px; font-family: 'Montserrat', sans-serif; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; padding: 11px 20px; border-radius: 4px; border: 1px solid var(--ink); background: var(--ink); color: var(--card); cursor: pointer; }
+  .ghost-button { display: inline-flex; align-items: center; gap: 6px; font-family: 'Montserrat', sans-serif; font-size: 10px; letter-spacing: 0.1em; padding: 9px 15px; border-radius: 4px; border: 1px solid rgba(43,40,36,0.28); background: transparent; color: var(--ink); cursor: pointer; }
+  .field { border-radius: 6px; padding: 9px 12px; border: 1px solid rgba(43,40,36,0.2); background: #fff; font-size: 14px; width: 100%; box-sizing: border-box; font-family: 'Montserrat', sans-serif; }
+  .exit-left { animation: exitLeft 0.3s ease forwards; }
+  .exit-left-strong { animation: exitLeftStrong 0.3s ease forwards; }
+  .exit-right { animation: exitRight 0.3s ease forwards; }
+  .exit-right-strong { animation: exitRightStrong 0.3s ease forwards; }
+  @keyframes exitLeft { to { transform: translateX(-130%) rotate(-10deg); opacity: 0; } }
+  @keyframes exitLeftStrong { to { transform: translateX(-170%) rotate(-22deg); opacity: 0; } }
+  @keyframes exitRight { to { transform: translateX(130%) rotate(10deg); opacity: 0; } }
+  @keyframes exitRightStrong { to { transform: translateX(170%) rotate(22deg); opacity: 0; } }
+  .stamp { animation: stampIn 0.2s ease forwards; }
+  @keyframes stampIn { from { opacity: 0; transform: scale(1.5) rotate(-10deg); } to { opacity: 1; transform: scale(1) rotate(-10deg); } }
+  @media (prefers-reduced-motion: reduce) { .exit-left, .exit-left-strong, .exit-right, .exit-right-strong, .stamp { animation: none !important; } }
