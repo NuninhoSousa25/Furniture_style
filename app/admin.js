@@ -148,8 +148,8 @@ function AdminView(props) {
                   const removable = !isStyle || t.custom;
                   const fg = isStyle ? (t.text || readableText(t.color)) : 'var(--ink)';
                   return (
-                    <span key={t.id} className="text-xs rounded-full pl-3 pr-1.5 py-1.5 flex items-center gap-1.5 border" style={{ borderColor: isStyle ? t.color : 'rgba(43,37,32,0.25)', background: isStyle ? t.color : '#fff', color: fg }}>
-                      {f.key === 'palette' && (t.swatches || []).slice(0, 4).map((c, i) => <span key={i} className="w-3 h-3 rounded-full" style={{ background: c, border: '1px solid rgba(43,37,32,0.15)' }} />)}
+                    <span key={t.id} className="text-xs rounded-full pl-3 pr-1.5 py-1.5 flex items-center gap-1.5 border" style={{ borderColor: isStyle ? safeColor(t.color) : 'rgba(43,37,32,0.25)', background: isStyle ? safeColor(t.color) : '#fff', color: fg }}>
+                      {f.key === 'palette' && (t.swatches || []).slice(0, 4).map((c, i) => <span key={i} className="w-3 h-3 rounded-full" style={{ background: safeColor(c), border: '1px solid rgba(43,37,32,0.15)' }} />)}
                       {t.label}
                       {removable && <button onClick={() => { if (confirm(`Remove "${t.label}"? It will also be removed from any pieces using it.`)) onDeleteTag(t.id); }} aria-label="Remove tag" style={{ lineHeight: 0 }}><Icon name="x" size={13} color={fg} /></button>}
                     </span>
@@ -195,7 +195,7 @@ function AdminView(props) {
             return (
               <div key={card.id} className="rounded-lg p-3" style={{ background: 'var(--card)' }}>
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden" style={{ background: sw.color }}>
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden" style={{ background: safeColor(sw.color) }}>
                     {card.imageUrl ? <img src={card.imageUrl} alt="" className="w-full h-full object-cover" /> : <Icon name="image" size={20} color={sw.text || readableText(sw.color)} />}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -214,7 +214,7 @@ function AdminView(props) {
                     <div className="flex flex-wrap gap-2">
                       {facetTags(state.tags, 'style').map((c) => {
                         const active = card.tags.includes(c.id);
-                        return <button key={c.id} onClick={() => onUpdateLibraryPiece(card.libId, { tags: active ? card.tags.filter((t) => t !== c.id) : [...card.tags, c.id] })} className="text-xs rounded-full px-3 py-1.5 border" style={{ borderColor: active ? c.color : 'rgba(43,37,32,0.2)', background: active ? c.color : '#fff', color: active ? (c.text || readableText(c.color)) : 'var(--ink)' }}>{c.label}</button>;
+                        return <button key={c.id} onClick={() => onUpdateLibraryPiece(card.libId, { tags: active ? card.tags.filter((t) => t !== c.id) : [...card.tags, c.id] })} className="text-xs rounded-full px-3 py-1.5 border" style={{ borderColor: active ? safeColor(c.color) : 'rgba(43,37,32,0.2)', background: active ? safeColor(c.color) : '#fff', color: active ? (c.text || readableText(c.color)) : 'var(--ink)' }}>{c.label}</button>;
                       })}
                     </div>
                   </div>

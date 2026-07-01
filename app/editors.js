@@ -34,7 +34,7 @@ function SwatchEditor({ colors, draft, setDraft, onAdd, onRemove }) {
     <div className="flex flex-wrap items-center gap-2">
       {colors.map((c) => (
         <span key={c} className="flex items-center gap-1 rounded-full border pl-1 pr-1.5 py-1" style={{ borderColor: 'rgba(43,37,32,0.2)' }}>
-          <span className="w-5 h-5 rounded-full" style={{ background: c, border: '1px solid rgba(43,37,32,0.15)' }} />
+          <span className="w-5 h-5 rounded-full" style={{ background: safeColor(c), border: '1px solid rgba(43,37,32,0.15)' }} />
           <button onClick={() => onRemove(c)} aria-label="Remove color" style={{ lineHeight: 0 }}><Icon name="x" size={12} /></button>
         </span>
       ))}

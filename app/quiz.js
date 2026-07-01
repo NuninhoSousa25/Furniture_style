@@ -50,7 +50,7 @@ function CardFace({ card, catMap, plain }) {
   useEffect(() => { setImgFailed(false); }, [card.imageUrl]);
   const showImage = card.imageUrl && !imgFailed;
   return (
-    <div className="absolute inset-0 rounded-lg overflow-hidden shadow-xl" style={{ background: cat.color }}>
+    <div className="absolute inset-0 rounded-lg overflow-hidden shadow-xl" style={{ background: safeColor(cat.color) }}>
       {showImage ? (
         <CroppedImage src={card.imageUrl} crop={plain ? null : card.crop} alt={card.name} onError={() => setImgFailed(true)} />
       ) : (

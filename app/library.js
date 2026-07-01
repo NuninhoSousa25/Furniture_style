@@ -96,21 +96,24 @@ function LibraryManager({ facets, tags, library, activeQuiz, catMap, onAddPieceT
   // building a room just adds references to the selected library pieces
   const addToRoom = () => { onAddPiecesToRoom(activeQuiz.id, sel); setSel([]); };
 
+  // color may be a tag's stored hex (untrusted manifest/library data) or absent (material/
+  // object chips have none) — safeColor(color, null) keeps the `|| 'var(--brass)'` fallback
+  // working for both "no color" and "invalid color" the same way
   const chip = (active, color, onClick, label, key) => (
-    <button key={key} onClick={onClick} className="text-xs rounded-full px-3 py-1.5 border" style={{ borderColor: active ? (color || 'var(--brass)') : 'rgba(43,37,32,0.2)', background: active ? (color || 'var(--brass)') : '#fff', color: active ? (color ? readableText(color) : 'var(--card)') : 'var(--ink)' }}>{label}</button>
+    <button key={key} onClick={onClick} className="text-xs rounded-full px-3 py-1.5 border" style={{ borderColor: active ? (safeColor(color, null) || 'var(--brass)') : 'rgba(43,37,32,0.2)', background: active ? (safeColor(color, null) || 'var(--brass)') : '#fff', color: active ? (color ? readableText(color) : 'var(--card)') : 'var(--ink)' }}>{label}</button>
   );
   // tri-state filter chip: off (neutral) -> include (filled) -> exclude (rust, struck through)
   const triChip = (mode, color, onClick, label, key) => {
     const isIn = mode === 'in', isEx = mode === 'ex';
     return (
-      <button key={key} onClick={onClick} title={isIn ? 'included — tap to exclude' : isEx ? 'excluded — tap to clear' : 'tap to include'} className="text-xs rounded-full px-3 py-1.5 border" style={{ borderColor: isIn ? (color || 'var(--brass)') : isEx ? 'var(--rust)' : 'rgba(43,37,32,0.2)', background: isIn ? (color || 'var(--brass)') : '#fff', color: isIn ? (color ? readableText(color) : 'var(--card)') : isEx ? 'var(--rust)' : 'var(--ink)', textDecoration: isEx ? 'line-through' : 'none' }}>{label}</button>
+      <button key={key} onClick={onClick} title={isIn ? 'included — tap to exclude' : isEx ? 'excluded — tap to clear' : 'tap to include'} className="text-xs rounded-full px-3 py-1.5 border" style={{ borderColor: isIn ? (safeColor(color, null) || 'var(--brass)') : isEx ? 'var(--rust)' : 'rgba(43,37,32,0.2)', background: isIn ? (safeColor(color, null) || 'var(--brass)') : '#fff', color: isIn ? (color ? readableText(color) : 'var(--card)') : isEx ? 'var(--rust)' : 'var(--ink)', textDecoration: isEx ? 'line-through' : 'none' }}>{label}</button>
     );
   };
   // tri-state color swatch: off (thin border) -> include (ink ring) -> exclude (rust ring + x, dimmed)
   const colorChip = (mode, hex) => {
     const isIn = mode === 'in', isEx = mode === 'ex';
     return (
-      <button key={hex} onClick={() => cycleMode(setFColorMode, hex)} title={`${hex}${isIn ? ' — included' : isEx ? ' — excluded' : ' — tap to include'}`} className="relative rounded-full flex-shrink-0" style={{ width: '26px', height: '26px', background: hex, border: isIn ? '2px solid var(--ink)' : isEx ? '2px solid var(--rust)' : '1px solid rgba(43,37,32,0.25)', opacity: isEx ? 0.5 : 1 }}>
+      <button key={hex} onClick={() => cycleMode(setFColorMode, hex)} title={`${hex}${isIn ? ' — included' : isEx ? ' — excluded' : ' — tap to include'}`} className="relative rounded-full flex-shrink-0" style={{ width: '26px', height: '26px', background: safeColor(hex), border: isIn ? '2px solid var(--ink)' : isEx ? '2px solid var(--rust)' : '1px solid rgba(43,37,32,0.25)', opacity: isEx ? 0.5 : 1 }}>
         {isEx && <span className="absolute inset-0 flex items-center justify-center"><Icon name="x" size={14} color="var(--rust)" /></span>}
       </button>
     );
@@ -214,7 +217,7 @@ function LibraryManager({ facets, tags, library, activeQuiz, catMap, onAddPieceT
                 const checked = sel.includes(p.id);
                 return (
                   <button key={p.id} onClick={() => toggleSel(p.id)} className="flex items-center gap-3 rounded-xl p-2 border text-left" style={{ borderColor: checked ? 'var(--brass)' : 'rgba(43,37,32,0.15)', background: checked ? 'rgba(201,162,39,0.12)' : '#fff' }}>
-                    <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden" style={{ background: sw.color }}>
+                    <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden" style={{ background: safeColor(sw.color) }}>
                       {p.imageUrl ? <img src={p.imageUrl} alt="" className="w-full h-full object-cover" /> : <Icon name="image" size={16} color={readableText(sw.color)} />}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -222,8 +225,8 @@ function LibraryManager({ facets, tags, library, activeQuiz, catMap, onAddPieceT
                       <p className="text-xs truncate" style={{ opacity: 0.55 }}>{tagLine(p)}</p>
                     </div>
                     <div className="flex items-center gap-1 flex-shrink-0">
-                      {(p.colors || []).slice(0, 3).map((c, i) => <span key={'m' + i} className="w-3.5 h-3.5 rounded-full" style={{ background: c, border: '1px solid rgba(43,37,32,0.15)' }} />)}
-                      {(p.accentColors || []).slice(0, 2).map((c, i) => <span key={'a' + i} title="accent" className="w-3.5 h-3.5 rounded-full" style={{ background: c, boxShadow: '0 0 0 1px #fff, 0 0 0 2px rgba(43,37,32,0.4)' }} />)}
+                      {(p.colors || []).slice(0, 3).map((c, i) => <span key={'m' + i} className="w-3.5 h-3.5 rounded-full" style={{ background: safeColor(c), border: '1px solid rgba(43,37,32,0.15)' }} />)}
+                      {(p.accentColors || []).slice(0, 2).map((c, i) => <span key={'a' + i} title="accent" className="w-3.5 h-3.5 rounded-full" style={{ background: safeColor(c), boxShadow: '0 0 0 1px #fff, 0 0 0 2px rgba(43,37,32,0.4)' }} />)}
                       <span className="ml-1 w-4 h-4 rounded flex items-center justify-center" style={{ border: checked ? 'none' : '1px solid rgba(43,37,32,0.3)', background: checked ? 'var(--brass)' : 'transparent', color: 'var(--card)' }}>{checked ? '✓' : ''}</span>
                     </div>
                   </button>
@@ -244,15 +247,15 @@ function LibraryManager({ facets, tags, library, activeQuiz, catMap, onAddPieceT
             return (
               <div key={p.id} className="rounded-lg p-3" style={{ background: 'var(--card)' }}>
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden" style={{ background: sw.color }}>
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden" style={{ background: safeColor(sw.color) }}>
                     {p.imageUrl ? <img src={p.imageUrl} alt="" className="w-full h-full object-cover" /> : <Icon name="image" size={20} color={readableText(sw.color)} />}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate" style={{ fontStyle: p.name ? undefined : 'italic', opacity: p.name ? 1 : 0.5 }}>{p.name || 'Untitled piece'}</p>
                     <p className="text-xs truncate" style={{ opacity: 0.6 }}>{tagLine(p)}</p>
                   </div>
-                  {(p.colors || []).slice(0, 3).map((c, i) => <span key={'m' + i} className="w-3.5 h-3.5 rounded-full flex-shrink-0" style={{ background: c, border: '1px solid rgba(43,37,32,0.15)' }} />)}
-                  {(p.accentColors || []).slice(0, 2).map((c, i) => <span key={'a' + i} title="accent" className="w-3.5 h-3.5 rounded-full flex-shrink-0" style={{ background: c, boxShadow: '0 0 0 1px #fff, 0 0 0 2px rgba(43,37,32,0.4)' }} />)}
+                  {(p.colors || []).slice(0, 3).map((c, i) => <span key={'m' + i} className="w-3.5 h-3.5 rounded-full flex-shrink-0" style={{ background: safeColor(c), border: '1px solid rgba(43,37,32,0.15)' }} />)}
+                  {(p.accentColors || []).slice(0, 2).map((c, i) => <span key={'a' + i} title="accent" className="w-3.5 h-3.5 rounded-full flex-shrink-0" style={{ background: safeColor(c), boxShadow: '0 0 0 1px #fff, 0 0 0 2px rgba(43,37,32,0.4)' }} />)}
                   <button onClick={() => setEditingId(editingId === p.id ? null : p.id)} className="p-2 rounded-lg flex-shrink-0" style={{ background: 'rgba(43,37,32,0.06)' }} aria-label="Edit piece"><Icon name="pencil" size={14} /></button>
                   <button onClick={() => { if (confirm('Delete this piece from the master library? It will also be removed from every room that uses it.')) onDeleteLibraryPiece(p.id); }} className="p-2 rounded-lg flex-shrink-0" style={{ background: 'rgba(178,96,63,0.12)', color: 'var(--rust)' }} aria-label="Delete from library"><Icon name="trash" size={14} color="var(--rust)" /></button>
                 </div>

@@ -122,6 +122,15 @@ function roomPieces(room, libById) {
   }).filter(Boolean);
 }
 
+// Tag ids and library piece ids come from untrusted data (a hosted manifest, or an imported
+// config file) and are later used as plain-object dictionary keys all over the app (scores,
+// counts, the various id->item indexes). If one were literally "__proto__" (or "constructor"/
+// "prototype"), a later `dict[id] = value` bracket-assignment would reassign that dictionary's
+// own prototype instead of storing a normal property — corrupting subsequent lookups on it.
+// Renaming (not dropping) neutralizes this while keeping the tag/piece usable.
+const UNSAFE_IDS = new Set(['__proto__', 'constructor', 'prototype']);
+const safeId = (id) => (UNSAFE_IDS.has(id) ? `id-${id}` : id);
+
 /* migrate any older stored / remote state into the v4 faceted shape:
    - build `facets` + a unified `tags` vocabulary from legacy categories/materials
    - fold each piece's separate `materials` array into its mixed-facet `tags`
@@ -147,7 +156,9 @@ function withDefaults(s) {
   };
   // the master library is the single source of truth for images; start from existing entries
   const library = (Array.isArray(s.library) ? s.library : []).map(fixPiece);
-  const libById = {}, byImage = {};
+  // null-prototype: these are written via `dict[untrustedId] = value` below, so a real {}
+  // would let a malicious "__proto__" id hijack this object's own prototype (see safeId above)
+  const libById = Object.create(null), byImage = Object.create(null);
   library.forEach((p) => { libById[p.id] = p; if (p.imageUrl) byImage[p.imageUrl] = p.id; });
   let migCount = 0;
   // ensure a piece has a library entry, returning its libId (dedupe one-offs by image url)
@@ -187,7 +198,15 @@ function withDefaults(s) {
   library.forEach((p) => (p.tags || []).forEach((id) => {
     if (!haveTag.has(id)) { tags.push({ id, facet: 'style', label: deSlug(id), color: NEW_TAG_PALETTE[tags.length % NEW_TAG_PALETTE.length], desc: `${deSlug(id)} style.`, custom: true }); haveTag.add(id); }
   }));
-  return { ...s, version: 4, facets, tags, library, quizzes, categories: undefined, materials: undefined };
+  // final pass: rewrite any dangerous id (see safeId above) consistently across the vocabulary,
+  // the library, and the room references that point into it — everything past this point
+  // (scores/counts dictionaries, tagIndex/libIndex, etc.) trusts these ids as plain object keys
+  const safeTags = tags.map((t) => (UNSAFE_IDS.has(t.id) ? { ...t, id: safeId(t.id) } : t));
+  const safeLibrary = library.map((p) => (UNSAFE_IDS.has(p.id) || (p.tags || []).some((t) => UNSAFE_IDS.has(t))
+    ? { ...p, id: safeId(p.id), tags: (p.tags || []).map(safeId) }
+    : p));
+  const safeQuizzes = quizzes.map((q) => ({ ...q, members: q.members.map((m) => (UNSAFE_IDS.has(m.libId) ? { ...m, libId: safeId(m.libId) } : m)) }));
+  return { ...s, version: 4, facets, tags: safeTags, library: safeLibrary, quizzes: safeQuizzes, categories: undefined, materials: undefined };
 }
 
 /* ---------------- deep links ----------------

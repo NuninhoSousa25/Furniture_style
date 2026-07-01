@@ -51,6 +51,13 @@ function readableText(hex) {
   const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
   return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.6 ? '#2B2520' : '#FBF6EE';
 }
+// only accept real hex colors before handing a value to `style={{ background: c }}`. Colors
+// come from manifest/library data we don't fully trust; an unvalidated string there could carry
+// e.g. `url(https://evil.tld/pixel.png)` and fire an outbound request to an attacker-chosen
+// host on render — a tracking-pixel-shaped leak, not script execution, but worth closing off.
+// `fallback` defaults to a neutral hex; pass `null` explicitly to preserve a caller's own
+// `safeColor(c, null) || '...'` chain (e.g. when `c` may legitimately be absent).
+function safeColor(c, fallback) { return typeof c === 'string' && /^#([0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(c) ? c : (fallback !== undefined ? fallback : '#E4DCC9'); }
 function slug(s) { return (s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 24) || 'item'; }
 function shuffle(arr) { const a = [...arr]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
 const NEW_TAG_PALETTE = ['#8C9A6B', '#7C6A8A', '#3F6B6B', '#A85751', '#C9A227', '#5E7A6C', '#9C7B52', '#46423C'];

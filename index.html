@@ -4,10 +4,22 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Find Your Style, a furniture quiz</title>
+<!-- Content-Security-Policy: a static site (GitHub Pages) can't set this via a real HTTP
+     header, so it's a <meta> tag — note that frame-ancestors/sandbox/report-* are ignored
+     here by spec and would need a real header if ever added. style-src needs 'unsafe-inline'
+     because React sets every component's style via inline style props, and the Tailwind CDN
+     script injects a generated <style> at runtime; img-src/connect-src are wide open because
+     "paste any hosted image/manifest URL" is a core, by-design feature of this app. */ -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src * data:; connect-src 'self' https: http:; object-src 'none'; base-uri 'self';" />
+<!-- Versions pinned + Subresource Integrity hashes added so a compromised/altered CDN
+     response is refused by the browser instead of silently executed. cdn.tailwindcss.com is
+     left unpinned: it's an unversioned, dynamically-generated endpoint by design (Tailwind's
+     own docs say not to use it in production) — replacing it with a compiled stylesheet would
+     remove this gap entirely, see README "Stack & build". -->
 <script src="https://cdn.tailwindcss.com"></script>
-<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" integrity="sha384-DGyLxAyjq0f9SPpVevD6IgztCFlnMF6oW/XQGmfe+IsZ8TqEiDrcHkMLKI6fiB/Z" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" integrity="sha384-gTGxhz21lVGYNMcdJOyq01Edg0jhn/c22nsx0kyqP0TxaV5WVdsSH1fSDUf5YJj1" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.7/babel.min.js" integrity="sha384-ezQ6HS3FLspd9te19o2McUV6FAK091+GG7KO54f/R8DKgCDi7fULhapNrd5LY+vG" crossorigin="anonymous"></script>
 <link rel="stylesheet" href="app/index.css" />
 </head>
 <body>
@@ -24,11 +36,20 @@
 <script>
   (function () {
     var root = document.getElementById('root');
+    // Builds the failure message via DOM APIs + textContent (never innerHTML), so this stays
+    // safe even if a future change starts passing a less-trusted string into `msg`.
     function fail(msg) {
-      root.innerHTML =
-        '<div style="max-width:28rem;margin:4rem auto;padding:0 1rem;font-family:sans-serif;color:#2B2520;text-align:center">' +
-        '<p style="font-size:1.25rem;margin-bottom:.5rem">Could not start the quiz</p>' +
-        '<p style="font-size:.875rem;opacity:.7">' + msg + '</p></div>';
+      var wrap = document.createElement('div');
+      wrap.style.cssText = 'max-width:28rem;margin:4rem auto;padding:0 1rem;font-family:sans-serif;color:#2B2520;text-align:center';
+      var title = document.createElement('p');
+      title.style.cssText = 'font-size:1.25rem;margin-bottom:.5rem';
+      title.textContent = 'Could not start the quiz';
+      var detail = document.createElement('p');
+      detail.style.cssText = 'font-size:.875rem;opacity:.7';
+      detail.textContent = msg;
+      wrap.appendChild(title); wrap.appendChild(detail);
+      root.textContent = '';
+      root.appendChild(wrap);
     }
     if (typeof Babel === 'undefined' || typeof React === 'undefined') {
       fail('Could not load React/Babel from the CDN. Check your internet connection.');

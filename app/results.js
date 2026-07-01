@@ -32,7 +32,7 @@ function DetailedResponses({ responses, catMap }) {
           const tagLabels = r.tags.map((t) => catMap[t]?.label || t).join(', ');
           return (
             <div key={i} className="rounded-xl p-3 flex items-start gap-3" style={{ background: 'var(--card)' }}>
-              <div className="w-9 h-9 rounded-lg flex-shrink-0 overflow-hidden" style={{ background: sw.color }}>
+              <div className="w-9 h-9 rounded-lg flex-shrink-0 overflow-hidden" style={{ background: safeColor(sw.color) }}>
                 {r.imageUrl ? <img src={r.imageUrl} alt="" className="w-full h-full object-cover" /> : null}
               </div>
               <div className="flex-1 min-w-0">
@@ -147,7 +147,7 @@ function ResultsView({ scores, counts, usedKeys, responses, catMap, quizName, de
         <p className="font-mono text-xs tracking-widest mb-2" style={{ opacity: 0.6 }}>YOUR STYLE PROFILE, {quizName.toUpperCase()}</p>
         <p className="font-display text-3xl">{top.label}</p>
       </div>
-      <div className="w-full rounded-lg p-5 relative overflow-hidden shadow-lg" style={{ background: top.color, color: top.text || readableText(top.color) }}>
+      <div className="w-full rounded-lg p-5 relative overflow-hidden shadow-lg" style={{ background: safeColor(top.color), color: top.text || readableText(top.color) }}>
         <div className="absolute left-1/2 -translate-x-1/2 top-4 w-4 h-4 rounded-full" style={{ background: '#FBF8F2', boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.3)' }} />
         <p className="mt-6 text-sm leading-relaxed">{top.desc}</p>
       </div>
@@ -173,7 +173,7 @@ function ResultsView({ scores, counts, usedKeys, responses, catMap, quizName, de
               {likedPalettes.slice(0, 4).map((t) => (
                 <div key={t.id} className="flex items-center gap-2">
                   <span className="text-xs flex-shrink-0">{t.label}</span>
-                  <div className="flex gap-1 flex-wrap">{(t.swatches || []).slice(0, 6).map((c, i) => <span key={i} title={c} className="w-4 h-4 rounded-full" style={{ background: c, border: '1px solid rgba(43,37,32,0.15)' }} />)}</div>
+                  <div className="flex gap-1 flex-wrap">{(t.swatches || []).slice(0, 6).map((c, i) => <span key={i} title={c} className="w-4 h-4 rounded-full" style={{ background: safeColor(c), border: '1px solid rgba(43,37,32,0.15)' }} />)}</div>
                 </div>
               ))}
             </div>
@@ -188,7 +188,7 @@ function ResultsView({ scores, counts, usedKeys, responses, catMap, quizName, de
             <div className="flex flex-wrap gap-2">
               {mainPalette.map((c, i) => (
                 <div key={'m' + i} className="flex flex-col items-center gap-1">
-                  <span className="w-9 h-9 rounded-lg" style={{ background: c, border: '1px solid rgba(43,37,32,0.15)' }} />
+                  <span className="w-9 h-9 rounded-lg" style={{ background: safeColor(c), border: '1px solid rgba(43,37,32,0.15)' }} />
                   <span className="font-mono" style={{ fontSize: '9px', opacity: 0.5 }}>{c}</span>
                 </div>
               ))}
@@ -197,7 +197,7 @@ function ResultsView({ scores, counts, usedKeys, responses, catMap, quizName, de
           {accentPalette.length > 0 && (
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs" style={{ opacity: 0.55 }}>Accents</span>
-              {accentPalette.map((c, i) => <span key={'a' + i} title={c} className="w-7 h-7 rounded-full" style={{ background: c, boxShadow: '0 0 0 1px #fff, 0 0 0 2px rgba(43,37,32,0.3)' }} />)}
+              {accentPalette.map((c, i) => <span key={'a' + i} title={c} className="w-7 h-7 rounded-full" style={{ background: safeColor(c), boxShadow: '0 0 0 1px #fff, 0 0 0 2px rgba(43,37,32,0.3)' }} />)}
             </div>
           )}
           <p className="text-xs" style={{ opacity: 0.55 }}>Drawn from the colors of the pieces you liked.</p>
